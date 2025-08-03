@@ -1,0 +1,131 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Estilos base */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 transition-colors duration-200;
+  }
+  
+  .dark body {
+    @apply bg-gray-950 text-gray-100;
+  }
+  
+  /* Scrollbar personalizado */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
+  }
+}
+
+/* Componentes personalizados */
+@layer components {
+  /* Botones */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+  }
+  
+  .btn-danger {
+    @apply btn bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500;
+  }
+  
+  .btn-sm {
+    @apply px-3 py-1.5 text-sm;
+  }
+  
+  .btn-md {
+    @apply px-4 py-2 text-sm;
+  }
+  
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  
+  /* Cards */
+  .card {
+    @apply bg-white rounded-lg shadow-card border border-gray-200 dark:bg-gray-800 dark:border-gray-700;
+  }
+  
+  .card-hover {
+    @apply card hover:shadow-card-hover transition-shadow duration-200;
+  }
+  
+  /* Inputs */
+  .input {
+    @apply block w-full rounded-lg border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100;
+  }
+  
+  /* Estados de tareas */
+  .estado-por-hacer {
+    @apply bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200;
+  }
+  
+  .estado-en-progreso {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400;
+  }
+  
+  .estado-en-revision {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400;
+  }
+  
+  .estado-completada {
+    @apply bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400;
+  }
+  
+  .estado-pausada {
+    @apply bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400;
+  }
+}
+
+/* Animaciones */
+@layer utilities {
+  .animate-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .slide-in-from-top {
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  .slide-in-from-bottom {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  /* Gradientes */
+  .gradient-primary {
+    @apply bg-gradient-to-r from-primary-500 to-primary-600;
+  }
+  
+  .gradient-success {
+    @apply bg-gradient-to-r from-success-500 to-success-600;
+  }
+  
+  .gradient-danger {
+    @apply bg-gradient-to-r from-danger-500 to-danger-600;
+  }
+} 

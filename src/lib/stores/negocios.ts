@@ -1,0 +1,262 @@
+import { writable, derived } from 'svelte/store';
+import type { Negocio } from '$lib/tipos/app';
+import { supabase } from '$lib/supabase/cliente';
+import { user } from '$lib/stores/auth';
+import { mostrarError, mostrarExito } from '$lib/stores/toast';
+
+// ======================================
+// STORES PRINCIPALES
+// ======================================
+
+export const negocios = writable<Negocio[]>([]);
+export const cargandoNegocios = writable<boolean>(false);
+export const cargandoNegocio = writable<boolean>(false);
+
+// ======================================
+// STORES DERIVADOS
+// ======================================
+
+export const estadisticasNegocios = derived(
+	[negocios],
+	([$negocios]) => {
+		if (!$negocios || $negocios.length === 0) {
+			return {
+				total: 0,
+				tipos: {},
+				recientes: []
+			};
+		}
+
+		const tipos = $negocios.reduce((acc, negocio) => {
+			acc[negocio.tipo_negocio] = (acc[negocio.tipo_negocio] || 0) + 1;
+			return acc;
+		}, {} as Record<string, number>);
+
+		const recientes = $negocios
+			.sort((a, b) => new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime())
+			.slice(0, 5);
+
+		return {
+			total: $negocios.length,
+			tipos,
+			recientes
+		};
+	}
+);
+
+// ======================================
+// FUNCIONES DE NEGOCIO
+// ======================================
+
+export const cargarNegocios = async (): Promise<void> => {
+	cargandoNegocios.set(true);
+	
+	try {
+		const { data, error } = await supabase
+			.from('negocios')
+			.select('*')
+			.order('fecha_creacion', { ascending: false });
+
+		if (error) {
+			console.error('Error al cargar negocios:', error);
+			
+			// Si las tablas no existen, usar datos simulados
+			if (error.code === '42P01') {
+				console.warn('Tabla negocios no encontrada, usando datos simulados');
+				const negociosSimulados: Negocio[] = [
+					{
+						id: '1',
+						usuario_id: 'user1',
+						nombre: 'Consultoría Digital',
+						tipo_negocio: 'servicio',
+						descripcion: 'Servicios de consultoría en transformación digital para empresas',
+						moneda: 'USD',
+						fecha_creacion: new Date().toISOString()
+					},
+					{
+						id: '2',
+						usuario_id: 'user1',
+						nombre: 'Tienda Online',
+						tipo_negocio: 'producto',
+						descripcion: 'Venta de productos electrónicos y accesorios',
+						moneda: 'USD',
+						fecha_creacion: new Date().toISOString()
+					}
+				];
+				negocios.set(negociosSimulados);
+				return;
+			}
+			
+			throw error;
+		}
+
+		negocios.set(data || []);
+		
+	} catch (error) {
+		console.error('Error al cargar negocios:', error);
+		mostrarError('Error al cargar negocios', 'Verifica tu conexión e intenta nuevamente');
+		negocios.set([]);
+	} finally {
+		cargandoNegocios.set(false);
+	}
+};
+
+export const cargarNegocio = async (id: string): Promise<Negocio | null> => {
+	cargandoNegocio.set(true);
+	
+	try {
+		const { data, error } = await supabase
+			.from('negocios')
+			.select('*')
+			.eq('id', id)
+			.single();
+
+		if (error) {
+			console.error('Error al cargar negocio:', error);
+			throw error;
+		}
+
+		return data;
+		
+	} catch (error) {
+		console.error('Error al cargar negocio:', error);
+		mostrarError('Error al cargar negocio');
+		return null;
+	} finally {
+		cargandoNegocio.set(false);
+	}
+};
+
+export const crearNegocio = async (negocioData: Partial<Negocio>): Promise<Negocio> => {
+	try {
+		// Obtener el usuario actual
+		const { data: { user: currentUser } } = await supabase.auth.getUser();
+		
+		if (!currentUser) {
+			throw new Error('No hay usuario autenticado');
+		}
+
+		const nuevoNegocio = {
+			...negocioData,
+			usuario_id: currentUser.id,
+			fecha_creacion: new Date().toISOString()
+		};
+
+		const { data, error } = await supabase
+			.from('negocios')
+			.insert([nuevoNegocio])
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Error al crear negocio:', error);
+			
+			// Si la tabla no existe, simular creación
+			if (error.code === '42P01') {
+				console.warn('Tabla negocios no encontrada, simulando creación');
+				const negocioSimulado: Negocio = {
+					id: `sim_${Date.now()}`,
+					usuario_id: currentUser.id,
+					nombre: negocioData.nombre || '',
+					tipo_negocio: negocioData.tipo_negocio || 'servicio',
+					descripcion: negocioData.descripcion || '',
+					moneda: negocioData.moneda || 'USD',
+					fecha_creacion: new Date().toISOString()
+				};
+				
+				// Agregar a la lista local
+				negocios.update(lista => [negocioSimulado, ...lista]);
+				mostrarExito('Negocio creado (modo simulado)', 'Los datos se guardarán cuando conectes la base de datos');
+				return negocioSimulado;
+			}
+			
+			throw error;
+		}
+
+		// Actualizar la lista local
+		negocios.update(lista => [data, ...lista]);
+		mostrarExito('Negocio creado exitosamente');
+		
+		return data;
+		
+	} catch (error) {
+		console.error('Error al crear negocio:', error);
+		mostrarError('Error al crear negocio', 'Intenta nuevamente');
+		throw error;
+	}
+};
+
+export const actualizarNegocio = async (id: string, negocioData: Partial<Negocio>): Promise<Negocio> => {
+	try {
+		const { data, error } = await supabase
+			.from('negocios')
+			.update(negocioData)
+			.eq('id', id)
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Error al actualizar negocio:', error);
+			throw error;
+		}
+
+		// Actualizar en la lista local
+		negocios.update(lista => 
+			lista.map(negocio => negocio.id === id ? data : negocio)
+		);
+		
+		mostrarExito('Negocio actualizado exitosamente');
+		return data;
+		
+	} catch (error) {
+		console.error('Error al actualizar negocio:', error);
+		mostrarError('Error al actualizar negocio');
+		throw error;
+	}
+};
+
+export const eliminarNegocio = async (id: string): Promise<void> => {
+	try {
+		const { error } = await supabase
+			.from('negocios')
+			.delete()
+			.eq('id', id);
+
+		if (error) {
+			console.error('Error al eliminar negocio:', error);
+			throw error;
+		}
+
+		// Eliminar de la lista local
+		negocios.update(lista => lista.filter(negocio => negocio.id !== id));
+		mostrarExito('Negocio eliminado exitosamente');
+		
+	} catch (error) {
+		console.error('Error al eliminar negocio:', error);
+		mostrarError('Error al eliminar negocio');
+		throw error;
+	}
+};
+
+// ======================================
+// UTILIDADES
+// ======================================
+
+export const limpiarEstadosNegocios = () => {
+	negocios.set([]);
+	cargandoNegocios.set(false);
+	cargandoNegocio.set(false);
+};
+
+export const buscarNegocios = (termino: string) => {
+	return derived(negocios, ($negocios) => {
+		if (!termino.trim()) return $negocios;
+		
+		const terminoLower = termino.toLowerCase();
+		return $negocios.filter(negocio => 
+			negocio.nombre.toLowerCase().includes(terminoLower) ||
+			negocio.tipo_negocio.toLowerCase().includes(terminoLower) ||
+			(negocio.descripcion && negocio.descripcion.toLowerCase().includes(terminoLower))
+		);
+	});
+}; 
