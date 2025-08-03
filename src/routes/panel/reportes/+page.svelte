@@ -161,7 +161,7 @@
                 .lte('fecha_gasto', fechaHasta);
 
             // Procesar datos por día/mes/año según el período
-            const agrupados = {};
+            const agrupados: Record<string, { ingresos: number; gastos: number }> = {};
             
             // Procesar movimientos de negocios
             movimientos?.forEach(mov => {

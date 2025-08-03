@@ -16,7 +16,9 @@
 			const nuevoProyecto = await crearProyecto(proyecto);
 			
 			// Redirigir al proyecto creado
-			goto(`/panel/proyectos/${nuevoProyecto.id}`);
+			if (nuevoProyecto?.id) {
+				goto(`/panel/proyectos/${nuevoProyecto.id}`);
+			}
 		} catch (error) {
 			console.error('Error al crear proyecto:', error);
 			// Aquí podrías mostrar un toast de error

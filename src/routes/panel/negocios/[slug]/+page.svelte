@@ -782,6 +782,4 @@
 				on:cancelar={() => modalMovimiento = false}
 			/>
 		</Modal>
-		</div> <!-- Cierre contenido principal -->
-	</div> <!-- Cierre contenedor principal -->
 {/if} 

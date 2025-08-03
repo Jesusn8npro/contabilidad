@@ -53,7 +53,8 @@
         reportes_semanales: true
     };
 
-    let tema = 'light';
+    // Estados de configuración
+    let tema: 'light' | 'dark' | undefined = 'light';
     let idioma = 'es';
 
     // Estados de carga
@@ -169,9 +170,9 @@
 
     // Aplicar tema
     const aplicarTema = (nuevoTema: string) => {
-        tema = nuevoTema;
+        tema = nuevoTema as 'light' | 'dark';
         
-        if (nuevoTema === 'dark') {
+        if (tema === 'dark') {
             document.documentElement.classList.add('dark');
         } else {
             document.documentElement.classList.remove('dark');
@@ -439,7 +440,7 @@
                             <div>
                                 <Input
                                     etiqueta="Teléfono"
-                                    tipo="tel"
+                                    tipo="text"
                                     bind:valor={formularioPerfil.telefono}
                                     placeholder="+57 300 123 4567"
                                 />

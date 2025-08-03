@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { page } from '$app/stores';
 	import { writable } from 'svelte/store';
 	import { supabase } from '$lib/supabase/cliente';
 	import { 
@@ -325,11 +326,6 @@
 	onMount(() => {
 		cargarGastosPersonales();
 	});
-
-	// Forzar recarga de datos cuando se navega a esta página
-	$: if (browser && $page.url.pathname === '/panel/gastos-personales') {
-		cargarGastosPersonales();
-	}
 </script>
 
 <svelte:head>
