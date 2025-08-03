@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { derived } from 'svelte/store';
 	import { 
 		TrendingUp, 
 		TrendingDown, 
@@ -12,413 +14,297 @@
 		Filter,
 		Plus,
 		ArrowUpRight,
-		ArrowDownRight
+		ArrowDownRight,
+		Building2,
+		Wallet,
+		Target,
+		Activity
 	} from 'lucide-svelte';
 	import Boton from '$lib/componentes/ui/Boton.svelte';
 	import Input from '$lib/componentes/ui/Input.svelte';
+	import TarjetaMovimiento from '$lib/componentes/movimientos/TarjetaMovimiento.svelte';
+	import { movimientos, cargarMovimientos, cargandoMovimientos } from '$lib/stores/movimientos';
+	import { negocios, cargarNegocios, cargandoNegocios } from '$lib/stores/negocios';
 
 	// Estado local
 	let periodoSeleccionado = 'este-mes';
 	let tipoGrafico = 'barras';
-	let cargando = false;
 
-	// Datos simulados para mostrar la funcionalidad
-	const metricasFinancieras = {
-		ingresosTotales: 45750.00,
-		gastosTotales: 18420.50,
-		beneficioNeto: 27329.50,
-		roi: 148.5,
-		crecimientoIngresos: 12.3,
-		crecimientoGastos: -5.8,
-		transaccionesTotal: 156,
-		promedioTransaccion: 293.27
+	// Métricas calculadas en tiempo real
+	$: metricasFinancieras = {
+		ingresosTotales: $movimientos
+			.filter(m => m.tipo_movimiento === 'ingreso')
+			.reduce((sum, m) => sum + m.monto, 0),
+		gastosTotales: $movimientos
+			.filter(m => m.tipo_movimiento === 'gasto')
+			.reduce((sum, m) => sum + m.monto, 0),
+		beneficioNeto: 0,
+		transaccionesTotal: $movimientos.length,
+		promedioTransaccion: $movimientos.length > 0 
+			? $movimientos.reduce((sum, m) => sum + m.monto, 0) / $movimientos.length 
+			: 0,
+		negociosActivos: $negocios.filter(n => n.activo !== false).length
 	};
 
-	// Datos para gráficos (simulados)
-	const datosIngresosPorMes = [
-		{ mes: 'Ene', ingresos: 3200, gastos: 1400 },
-		{ mes: 'Feb', ingresos: 3800, gastos: 1600 },
-		{ mes: 'Mar', ingresos: 4200, gastos: 1550 },
-		{ mes: 'Abr', ingresos: 3900, gastos: 1700 },
-		{ mes: 'May', ingresos: 4500, gastos: 1800 },
-		{ mes: 'Jun', ingresos: 5100, gastos: 1920 }
-	];
+	// Calcular beneficio neto
+	$: metricasFinancieras.beneficioNeto = metricasFinancieras.ingresosTotales - metricasFinancieras.gastosTotales;
 
-	const categoriesIngresos = [
-		{ categoria: 'Freelance', monto: 18500, porcentaje: 40.4, color: '#3b82f6' },
-		{ categoria: 'Productos', monto: 12200, porcentaje: 26.7, color: '#10b981' },
-		{ categoria: 'Servicios', monto: 8750, porcentaje: 19.1, color: '#f59e0b' },
-		{ categoria: 'Inversiones', monto: 6300, porcentaje: 13.8, color: '#8b5cf6' }
-	];
+	// Movimientos recientes (últimos 10)
+	$: movimientosRecientes = $movimientos
+		.sort((a, b) => new Date(b.fecha_movimiento).getTime() - new Date(a.fecha_movimiento).getTime())
+		.slice(0, 10);
 
-	const categoriesGastos = [
-		{ categoria: 'Software', monto: 4200, porcentaje: 22.8, color: '#ef4444' },
-		{ categoria: 'Marketing', monto: 3800, porcentaje: 20.6, color: '#f97316' },
-		{ categoria: 'Oficina', monto: 3200, porcentaje: 17.4, color: '#84cc16' },
-		{ categoria: 'Viajes', monto: 2900, porcentaje: 15.7, color: '#06b6d4' },
-		{ categoria: 'Otros', monto: 4320.5, porcentaje: 23.5, color: '#6b7280' }
-	];
+	// Ingresos por categoría (agrupados)
+	$: ingresosPorCategoria = $movimientos
+		.filter(m => m.tipo_movimiento === 'ingreso')
+		.reduce((acc, m) => {
+			const key = m.categoria_id || 'Sin categoría';
+			if (!acc[key]) {
+				acc[key] = { total: 0, count: 0 };
+			}
+			acc[key].total += m.monto;
+			acc[key].count += 1;
+			return acc;
+		}, {} as Record<string, { total: number; count: number }>);
 
-	// Transacciones recientes (simuladas)
-	const transaccionesRecientes = [
-		{
-			id: '1',
-			descripcion: 'Desarrollo web - Cliente ABC',
-			monto: 2500,
-			tipo: 'ingreso',
-			categoria: 'Freelance',
-			fecha: '2024-01-18T10:30:00Z',
-			metodo: 'transferencia'
-		},
-		{
-			id: '2',
-			descripcion: 'Suscripción Adobe Creative Suite',
-			monto: -52.99,
-			tipo: 'gasto',
-			categoria: 'Software',
-			fecha: '2024-01-17T14:20:00Z',
-			metodo: 'tarjeta'
-		},
-		{
-			id: '3',
-			descripcion: 'Venta productos premium',
-			monto: 850,
-			tipo: 'ingreso',
-			categoria: 'Productos',
-			fecha: '2024-01-16T09:15:00Z',
-			metodo: 'tarjeta'
-		},
-		{
-			id: '4',
-			descripcion: 'Campaña Google Ads',
-			monto: -320,
-			tipo: 'gasto',
-			categoria: 'Marketing',
-			fecha: '2024-01-15T16:45:00Z',
-			metodo: 'tarjeta'
-		},
-		{
-			id: '5',
-			descripcion: 'Consultoría estratégica',
-			monto: 1200,
-			tipo: 'ingreso',
-			categoria: 'Servicios',
-			fecha: '2024-01-14T11:20:00Z',
-			metodo: 'transferencia'
-		}
-	];
+	// Gastos por categoría (agrupados)  
+	$: gastosPorCategoria = $movimientos
+		.filter(m => m.tipo_movimiento === 'gasto')
+		.reduce((acc, m) => {
+			const key = m.categoria_id || 'Sin categoría';
+			if (!acc[key]) {
+				acc[key] = { total: 0, count: 0 };
+			}
+			acc[key].total += m.monto;
+			acc[key].count += 1;
+			return acc;
+		}, {} as Record<string, { total: number; count: number }>);
 
-	onMount(() => {
-		cargarDatosFinancieros();
-	});
-
-	const cargarDatosFinancieros = async () => {
-		cargando = true;
-		// Simular carga de datos
-		await new Promise(resolve => setTimeout(resolve, 1000));
-		cargando = false;
-	};
-
+	// Formatear moneda
 	const formatearMoneda = (monto: number) => {
-		return new Intl.NumberFormat('es-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2
-		}).format(Math.abs(monto));
+		return `$${monto.toLocaleString()}`;
 	};
 
-	const formatearFecha = (fecha: string) => {
-		return new Date(fecha).toLocaleDateString('es-ES', {
-			day: '2-digit',
-			month: 'short',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	};
-
-	// Generar datos para el gráfico de barras (simulado)
-	const generarGraficoBarras = () => {
-		const maxValor = Math.max(...datosIngresosPorMes.map(d => Math.max(d.ingresos, d.gastos)));
-		return datosIngresosPorMes.map(datos => ({
-			...datos,
-			alturaIngresos: (datos.ingresos / maxValor) * 200,
-			alturaGastos: (datos.gastos / maxValor) * 200
-		}));
-	};
-
-	$: datosGrafico = generarGraficoBarras();
+	// Cargar datos al montar
+	onMount(async () => {
+		if (!browser) return;
+		
+		try {
+			await Promise.all([
+				cargarMovimientos(),
+				cargarNegocios()
+			]);
+		} catch (error) {
+			console.error('Error cargando datos financieros:', error);
+		}
+	});
 </script>
 
 <svelte:head>
-	<title>Finanzas - App Contabilidad</title>
+	<title>Finanzas - Panel de Control</title>
 </svelte:head>
 
-<!-- Header de la página -->
-<div class="flex flex-col space-y-6">
-	<!-- Header superior -->
-	<div class="flex items-center justify-between">
-		<div>
-			<h1 class="text-3xl font-bold text-gray-900 dark:text-white">Finanzas</h1>
-			<p class="text-gray-600 dark:text-gray-400 mt-1">
-				Dashboard financiero completo con métricas y análisis
-			</p>
-		</div>
-		
-		<div class="flex items-center space-x-3">
-			<select 
-				bind:value={periodoSeleccionado}
-				class="bg-white/80 dark:bg-gray-700/80 border border-gray-200/50 dark:border-gray-600/50 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-			>
-				<option value="esta-semana">Esta Semana</option>
-				<option value="este-mes">Este Mes</option>
-				<option value="ultimo-trimestre">Último Trimestre</option>
-				<option value="este-año">Este Año</option>
-			</select>
+<!-- Header mejorado -->
+<div class="bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+	<div class="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+			<div class="mb-4 sm:mb-0">
+				<h1 class="text-2xl sm:text-3xl font-bold flex items-center">
+					<DollarSign class="w-6 h-6 sm:w-8 sm:h-8 mr-3" />
+					Finanzas
+				</h1>
+				<p class="text-blue-100 mt-1 text-sm sm:text-base">Dashboard financiero completo con métricas y análisis</p>
+			</div>
 			
-			<Boton variante="secundario" tamaño="sm">
-				<Download class="w-4 h-4 mr-2" />
-				Exportar
-			</Boton>
-			
-			<Boton>
-				<Plus class="w-4 h-4 mr-2" />
-				Nuevo Movimiento
-			</Boton>
+			<div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+				<select 
+					bind:value={periodoSeleccionado}
+					class="px-3 sm:px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/50"
+				>
+					<option value="hoy">Hoy</option>
+					<option value="esta-semana">Esta Semana</option>
+					<option value="este-mes">Este Mes</option>
+					<option value="este-ano">Este Año</option>
+				</select>
+				
+				<Boton 
+					variante="secondary" 
+					clase="border-white/20 text-white hover:bg-white/10 text-sm"
+				>
+					<Download class="w-4 h-4 mr-2" />
+					Exportar
+				</Boton>
+				
+				<Boton 
+					clase="bg-white text-blue-600 hover:bg-gray-50 text-sm"
+				>
+					<Plus class="w-4 h-4 mr-2" />
+					Nuevo Movimiento
+				</Boton>
+			</div>
 		</div>
 	</div>
+</div>
+
+<!-- Contenido principal -->
+<div class="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
 	<!-- Métricas principales -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
 		<!-- Ingresos Totales -->
-		<div class="relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white">
+		<div class="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
 			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-green-100 text-sm font-medium">Ingresos Totales</p>
-					<p class="text-3xl font-bold mt-1">{formatearMoneda(metricasFinancieras.ingresosTotales)}</p>
-					<div class="flex items-center mt-2">
+				<div class="flex-1">
+					<p class="text-sm font-medium text-gray-600 dark:text-gray-400">Ingresos Totales</p>
+					<p class="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400 mt-2">
+						{formatearMoneda(metricasFinancieras.ingresosTotales)}
+					</p>
+					<p class="text-sm text-green-600 dark:text-green-400 mt-1 flex items-center">
 						<ArrowUpRight class="w-4 h-4 mr-1" />
-						<span class="text-green-100 text-sm">+{metricasFinancieras.crecimientoIngresos}%</span>
-					</div>
+						Ingresos
+					</p>
 				</div>
-				<div class="p-3 bg-white/20 rounded-xl">
-					<TrendingUp class="w-6 h-6" />
+				<div class="flex-shrink-0 p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+					<TrendingUp class="w-6 h-6 text-green-600 dark:text-green-400" />
 				</div>
 			</div>
-			<div class="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
 		</div>
 
 		<!-- Gastos Totales -->
-		<div class="relative overflow-hidden bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-6 text-white">
+		<div class="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
 			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-red-100 text-sm font-medium">Gastos Totales</p>
-					<p class="text-3xl font-bold mt-1">{formatearMoneda(metricasFinancieras.gastosTotales)}</p>
-					<div class="flex items-center mt-2">
+				<div class="flex-1">
+					<p class="text-sm font-medium text-gray-600 dark:text-gray-400">Gastos Totales</p>
+					<p class="text-2xl sm:text-3xl font-bold text-red-600 dark:text-red-400 mt-2">
+						{formatearMoneda(metricasFinancieras.gastosTotales)}
+					</p>
+					<p class="text-sm text-red-600 dark:text-red-400 mt-1 flex items-center">
 						<ArrowDownRight class="w-4 h-4 mr-1" />
-						<span class="text-red-100 text-sm">{metricasFinancieras.crecimientoGastos}%</span>
-					</div>
+						Gastos
+					</p>
 				</div>
-				<div class="p-3 bg-white/20 rounded-xl">
-					<TrendingDown class="w-6 h-6" />
+				<div class="flex-shrink-0 p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
+					<TrendingDown class="w-6 h-6 text-red-600 dark:text-red-400" />
 				</div>
 			</div>
-			<div class="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
 		</div>
 
 		<!-- Beneficio Neto -->
-		<div class="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
+		<div class="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
 			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-blue-100 text-sm font-medium">Beneficio Neto</p>
-					<p class="text-3xl font-bold mt-1">{formatearMoneda(metricasFinancieras.beneficioNeto)}</p>
-					<div class="flex items-center mt-2">
-						<DollarSign class="w-4 h-4 mr-1" />
-						<span class="text-blue-100 text-sm">ROI {metricasFinancieras.roi}%</span>
-					</div>
+				<div class="flex-1">
+					<p class="text-sm font-medium text-gray-600 dark:text-gray-400">Beneficio Neto</p>
+					<p class="text-2xl sm:text-3xl font-bold {metricasFinancieras.beneficioNeto >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'} mt-2">
+						{formatearMoneda(metricasFinancieras.beneficioNeto)}
+					</p>
+					<p class="text-sm {metricasFinancieras.beneficioNeto >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'} mt-1 flex items-center">
+						<Activity class="w-4 h-4 mr-1" />
+						Balance
+					</p>
 				</div>
-				<div class="p-3 bg-white/20 rounded-xl">
-					<DollarSign class="w-6 h-6" />
+				<div class="flex-shrink-0 p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+					<DollarSign class="w-6 h-6 text-blue-600 dark:text-blue-400" />
 				</div>
 			</div>
-			<div class="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
 		</div>
 
 		<!-- Transacciones -->
-		<div class="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6">
+		<div class="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
 			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-gray-600 dark:text-gray-400 text-sm font-medium">Transacciones</p>
-					<p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{metricasFinancieras.transaccionesTotal}</p>
-					<p class="text-gray-600 dark:text-gray-400 text-sm mt-2">
-						Promedio: {formatearMoneda(metricasFinancieras.promedioTransaccion)}
+				<div class="flex-1">
+					<p class="text-sm font-medium text-gray-600 dark:text-gray-400">Transacciones</p>
+					<p class="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2">
+						{metricasFinancieras.transaccionesTotal}
+					</p>
+					<p class="text-sm text-purple-600 dark:text-purple-400 mt-1 flex items-center">
+						<CreditCard class="w-4 h-4 mr-1" />
+						Total
 					</p>
 				</div>
-				<div class="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
-					<CreditCard class="w-6 h-6 text-purple-600 dark:text-purple-400" />
+				<div class="flex-shrink-0 p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+					<Wallet class="w-6 h-6 text-purple-600 dark:text-purple-400" />
 				</div>
 			</div>
-			<div class="absolute -bottom-2 -right-2 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-purple-600/20 rounded-full"></div>
 		</div>
 	</div>
 
-	<!-- Gráficos y análisis -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-		<!-- Gráfico principal -->
-		<div class="lg:col-span-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6">
-			<div class="flex items-center justify-between mb-6">
-				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Tendencia Financiera</h3>
-				<div class="flex items-center space-x-2">
-					<button 
-						class="p-2 rounded-lg {tipoGrafico === 'barras' ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}"
-						on:click={() => tipoGrafico = 'barras'}
-					>
-						<BarChart3 class="w-4 h-4" />
-					</button>
-					<button 
-						class="p-2 rounded-lg {tipoGrafico === 'linea' ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}"
-						on:click={() => tipoGrafico = 'linea'}
-					>
-						<TrendingUp class="w-4 h-4" />
-					</button>
-				</div>
+	<!-- Movimientos Recientes -->
+	<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+		<div class="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+			<div class="flex items-center justify-between">
+				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Transacciones Recientes</h3>
+				<Boton variante="ghost" clase="text-sm">
+					Ver todas
+				</Boton>
 			</div>
-			
-			<!-- Gráfico de barras SVG personalizado -->
-			<div class="relative h-64 w-full">
-				<svg class="w-full h-full" viewBox="0 0 600 250">
-					<!-- Líneas de guía -->
-					<defs>
-						<linearGradient id="ingresoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-							<stop offset="0%" style="stop-color:#10b981;stop-opacity:0.8" />
-							<stop offset="100%" style="stop-color:#10b981;stop-opacity:0.2" />
-						</linearGradient>
-						<linearGradient id="gastoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-							<stop offset="0%" style="stop-color:#ef4444;stop-opacity:0.8" />
-							<stop offset="100%" style="stop-color:#ef4444;stop-opacity:0.2" />
-						</linearGradient>
-					</defs>
-					
-					<!-- Líneas de grilla -->
-					{#each [0, 50, 100, 150, 200] as y}
-						<line x1="40" y1={y + 30} x2="580" y2={y + 30} stroke="#e5e7eb" stroke-width="1" opacity="0.5"/>
+		</div>
+		<div class="p-4 sm:p-6">
+			{#if $cargandoMovimientos}
+				<div class="flex items-center justify-center py-8">
+					<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+				</div>
+			{:else if movimientosRecientes.length === 0}
+				<div class="text-center py-8">
+					<DollarSign class="w-12 h-12 mx-auto text-gray-400 mb-4" />
+					<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+						No hay movimientos
+					</h3>
+					<p class="text-gray-600 dark:text-gray-400 mb-6">
+						Empieza creando tu primer ingreso o gasto.
+					</p>
+					<Boton>
+						<Plus class="w-4 h-4 mr-2" />
+						Crear Movimiento
+					</Boton>
+				</div>
+			{:else}
+				<div class="space-y-3">
+					{#each movimientosRecientes as movimiento (movimiento.id)}
+						<TarjetaMovimiento {movimiento} mostrarNegocio={true} />
 					{/each}
-					
-					<!-- Barras -->
-					{#each datosGrafico as dato, i}
-						<g transform="translate({70 + i * 80}, 30)">
-							<!-- Barra de ingresos -->
-							<rect 
-								x="0" 
-								y={200 - dato.alturaIngresos} 
-								width="25" 
-								height={dato.alturaIngresos}
-								fill="url(#ingresoGradient)"
-								rx="3"
-							/>
-							
-							<!-- Barra de gastos -->
-							<rect 
-								x="30" 
-								y={200 - dato.alturaGastos} 
-								width="25" 
-								height={dato.alturaGastos}
-								fill="url(#gastoGradient)"
-								rx="3"
-							/>
-							
-							<!-- Etiqueta del mes -->
-							<text x="27" y="220" text-anchor="middle" class="text-xs fill-gray-600 dark:fill-gray-400">
-								{dato.mes}
-							</text>
-						</g>
-					{/each}
-				</svg>
-				
-				<!-- Leyenda -->
-				<div class="absolute bottom-0 left-0 flex items-center space-x-6 text-sm">
-					<div class="flex items-center space-x-2">
-						<div class="w-3 h-3 bg-green-500 rounded"></div>
-						<span class="text-gray-600 dark:text-gray-400">Ingresos</span>
-					</div>
-					<div class="flex items-center space-x-2">
-						<div class="w-3 h-3 bg-red-500 rounded"></div>
-						<span class="text-gray-600 dark:text-gray-400">Gastos</span>
-					</div>
+				</div>
+			{/if}
+		</div>
+	</div>
+
+	<!-- Métricas Adicionales -->
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+		<!-- Negocios Activos -->
+		<div class="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+			<div class="flex items-center justify-between mb-4">
+				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Negocios</h3>
+				<Building2 class="w-5 h-5 text-gray-400" />
+			</div>
+			<div class="space-y-3">
+				<div class="flex items-center justify-between">
+					<span class="text-sm text-gray-600 dark:text-gray-400">Negocios Activos</span>
+					<span class="font-bold text-gray-900 dark:text-white">{metricasFinancieras.negociosActivos}</span>
+				</div>
+				<div class="flex items-center justify-between">
+					<span class="text-sm text-gray-600 dark:text-gray-400">Promedio por Transacción</span>
+					<span class="font-bold text-gray-900 dark:text-white">{formatearMoneda(metricasFinancieras.promedioTransaccion)}</span>
 				</div>
 			</div>
 		</div>
 
-		<!-- Distribución por categorías -->
-		<div class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6">
-			<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Ingresos por Categoría</h3>
-			
-			<div class="space-y-4">
-				{#each categoriesIngresos as categoria}
+		<!-- Resumen por Categorías -->
+		<div class="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+			<div class="flex items-center justify-between mb-4">
+				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Categorías</h3>
+				<PieChart class="w-5 h-5 text-gray-400" />
+			</div>
+			<div class="space-y-2">
+				{#each Object.entries(ingresosPorCategoria).slice(0, 3) as [categoria, datos]}
 					<div class="flex items-center justify-between">
-						<div class="flex items-center space-x-3">
-							<div class="w-3 h-3 rounded-full" style="background-color: {categoria.color}"></div>
-							<span class="text-sm font-medium text-gray-900 dark:text-white">{categoria.categoria}</span>
-						</div>
-						<div class="text-right">
-							<div class="text-sm font-semibold text-gray-900 dark:text-white">
-								{formatearMoneda(categoria.monto)}
-							</div>
-							<div class="text-xs text-gray-500 dark:text-gray-400">
-								{categoria.porcentaje}%
-							</div>
-						</div>
-					</div>
-					<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-						<div 
-							class="h-2 rounded-full transition-all duration-500"
-							style="width: {categoria.porcentaje}%; background-color: {categoria.color}"
-						></div>
+						<span class="text-sm text-gray-600 dark:text-gray-400 truncate">{categoria}</span>
+						<span class="font-bold text-green-600 dark:text-green-400">{formatearMoneda(datos.total)}</span>
 					</div>
 				{/each}
+				{#if Object.keys(ingresosPorCategoria).length === 0}
+					<p class="text-sm text-gray-500 dark:text-gray-400">No hay datos de categorías</p>
+				{/if}
 			</div>
 		</div>
 	</div>
 
-	<!-- Transacciones recientes -->
-	<div class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-		<div class="flex items-center justify-between p-6 border-b border-gray-200/50 dark:border-gray-700/50">
-			<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Transacciones Recientes</h3>
-			<Boton variante="fantasma" tamaño="sm">
-				Ver todas
-			</Boton>
-		</div>
-		
-		<div class="divide-y divide-gray-200/50 dark:divide-gray-700/50">
-			{#each transaccionesRecientes as transaccion (transaccion.id)}
-				<div class="flex items-center justify-between p-6 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-					<div class="flex items-center space-x-4">
-						<div class="p-3 rounded-xl {transaccion.tipo === 'ingreso' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}">
-							{#if transaccion.tipo === 'ingreso'}
-								<ArrowUpRight class="w-5 h-5 text-green-600 dark:text-green-400" />
-							{:else}
-								<ArrowDownRight class="w-5 h-5 text-red-600 dark:text-red-400" />
-							{/if}
-						</div>
-						
-						<div>
-							<h4 class="font-medium text-gray-900 dark:text-white">{transaccion.descripcion}</h4>
-							<div class="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-								<span>{transaccion.categoria}</span>
-								<span>•</span>
-								<span>{formatearFecha(transaccion.fecha)}</span>
-								<span>•</span>
-								<span class="capitalize">{transaccion.metodo}</span>
-							</div>
-						</div>
-					</div>
-					
-					<div class="text-right">
-						<div class="font-semibold {transaccion.tipo === 'ingreso' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
-							{transaccion.tipo === 'ingreso' ? '+' : ''}{formatearMoneda(transaccion.monto)}
-						</div>
-					</div>
-				</div>
-			{/each}
-		</div>
-	</div>
 </div> 

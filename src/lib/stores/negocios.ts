@@ -11,6 +11,7 @@ import { mostrarError, mostrarExito } from '$lib/stores/toast';
 export const negocios = writable<Negocio[]>([]);
 export const cargandoNegocios = writable<boolean>(false);
 export const cargandoNegocio = writable<boolean>(false);
+export const negocioActual = writable<Negocio | null>(null);
 
 // ======================================
 // STORES DERIVADOS
@@ -121,6 +122,35 @@ export const cargarNegocio = async (id: string): Promise<Negocio | null> => {
 	} catch (error) {
 		console.error('Error al cargar negocio:', error);
 		mostrarError('Error al cargar negocio');
+		return null;
+	} finally {
+		cargandoNegocio.set(false);
+	}
+};
+
+export const cargarNegocioPorSlug = async (slug: string): Promise<Negocio | null> => {
+	cargandoNegocio.set(true);
+	negocioActual.set(null);
+	
+	try {
+		const { data, error } = await supabase
+			.from('negocios')
+			.select('*')
+			.eq('slug', slug)
+			.single();
+
+		if (error) {
+			console.error('Error al cargar negocio por slug:', error);
+			throw error;
+		}
+
+		negocioActual.set(data);
+		return data;
+		
+	} catch (error) {
+		console.error('Error al cargar negocio por slug:', error);
+		mostrarError('Error al cargar negocio por slug');
+		negocioActual.set(null);
 		return null;
 	} finally {
 		cargandoNegocio.set(false);

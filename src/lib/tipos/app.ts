@@ -14,6 +14,7 @@ export interface Proyecto {
 	id: string;
 	usuario_id: string;
 	nombre: string;
+	slug: string;
 	descripcion?: string;
 	color: string;
 	estado: EstadoProyecto;
@@ -48,7 +49,8 @@ export const COLORES_PROYECTO = [
 // Tareas
 export interface Tarea {
 	id: string;
-	proyecto_id: string;
+	proyecto_id?: string | null; // Opcional: para tareas de proyectos
+	negocio_id?: string | null;  // Opcional: para tareas directas de negocios
 	usuario_id: string;
 	titulo: string;
 	descripcion?: string;
@@ -56,16 +58,20 @@ export interface Tarea {
 	prioridad: PrioridadTarea;
 	fecha_limite?: string;
 	fecha_inicio?: string;
-	fecha_completado?: string; // Added
+	fecha_completado?: string;
 	fecha_creacion: string;
 	fecha_actualizacion: string;
 	asignado_a?: string;
 	orden: number;
-	columna?: string; // Added para Kanban
+	columna?: string; // Para Kanban
 	tiempo_estimado_horas?: number;
 	tiempo_real_horas?: number;
 	etiquetas?: string[];
 	adjuntos_urls?: string[];
+	
+	// Campos relacionales para joins
+	proyectos?: { nombre: string; slug: string };
+	negocios?: { nombre: string };
 }
 
 export type EstadoTarea = 'por-hacer' | 'en-progreso' | 'en-revision' | 'completada' | 'pausada';
@@ -95,17 +101,39 @@ export interface Negocio {
 	tipo_negocio: TipoNegocio;
 	descripcion?: string;
 	moneda: string;
+	slug?: string;
+	
+	// 📞 INFORMACIÓN DE CONTACTO
+	logo_url?: string;
+	website?: string;
+	telefono?: string;
+	email?: string;
+	direccion?: string;
+	
+	// 📊 CONFIGURACIÓN FISCAL  
+	numero_documento?: string;
+	regimen_fiscal?: string;
+	
+	// 📈 METAS FINANCIERAS
+	meta_ingresos_mensual?: number;
+	meta_gastos_mensual?: number;
+	
+	// ⚙️ ESTADO
+	activo?: boolean;
 	fecha_creacion: string;
+	fecha_actualizacion?: string;
 }
 
-export type TipoNegocio = 'servicio' | 'producto' | 'mixto' | 'inversion' | 'freelance' | 'otro';
+export type TipoNegocio = 'servicio' | 'producto' | 'mixto' | 'inversion' | 'freelance' | 'consultoria' | 'ecommerce' | 'otro';
 
 export const TIPOS_NEGOCIO: Record<TipoNegocio, string> = {
 	'servicio': 'Servicios',
 	'producto': 'Productos',
-	'mixto': 'Mixto',
-	'inversion': 'Inversión',
+	'mixto': 'Mixto (Servicios y Productos)',
+	'inversion': 'Inversiones',
 	'freelance': 'Freelance',
+	'consultoria': 'Consultoría',
+	'ecommerce': 'E-commerce',
 	'otro': 'Otro'
 };
 

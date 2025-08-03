@@ -2,130 +2,350 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* Estilos base */
-@layer base {
-  html {
-    scroll-behavior: smooth;
+/* Variables personalizadas */
+:root {
+  /* Colores */
+  --primary-50: #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+  
+  /* Spacing responsivo */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Utility classes personalizadas */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Scrollbar hiding */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar for desktop */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+/* Animaciones de entrada */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+/* Mejoras para móvil */
+@media (max-width: 767px) {
+  /* Espaciado más compacto en móvil */
+  .mobile-compact {
+    padding: var(--spacing-sm);
   }
   
-  body {
-    @apply bg-gray-50 text-gray-900 transition-colors duration-200;
+  /* Fuentes más pequeñas en móvil */
+  .mobile-text-sm {
+    font-size: 0.875rem;
   }
   
-  .dark body {
-    @apply bg-gray-950 text-gray-100;
+  .mobile-text-xs {
+    font-size: 0.75rem;
   }
   
-  /* Scrollbar personalizado */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  /* Botones más grandes para touch */
+  .mobile-touch-target {
+    min-height: 44px;
+    min-width: 44px;
   }
   
-  ::-webkit-scrollbar-track {
-    @apply bg-gray-100 dark:bg-gray-800;
+  /* Ocultar elementos en móvil */
+  .mobile-hidden {
+    display: none;
   }
-  
-  ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+/* Mejoras para tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .tablet-spacing {
+    padding: var(--spacing-md);
   }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-gray-500;
-  }
+}
+
+/* Estados de focus mejorados */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900;
 }
 
 /* Componentes personalizados */
-@layer components {
-  /* Botones */
-  .btn {
-    @apply inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+.glass-effect {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.dark .glass-effect {
+  background: rgba(31, 41, 55, 0.8);
+}
+
+.gradient-border {
+  position: relative;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 1px;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  background: white;
+  border-radius: 11px;
+  z-index: -1;
+}
+
+.dark .gradient-border::before {
+  background: #1f2937;
+}
+
+/* Sombras personalizadas */
+.shadow-glass {
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.37),
+    0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.shadow-elevated {
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Transiciones suaves globales */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Optimizaciones de rendimiento */
+.will-change-transform {
+  will-change: transform;
+}
+
+.hardware-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Modo oscuro mejorado */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Estados hover mejorados */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.3);
+}
+
+/* Indicadores de loading mejorados */
+.loading-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
   }
-  
-  .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
-  }
-  
-  .btn-secondary {
-    @apply btn bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
-  }
-  
-  .btn-danger {
-    @apply btn bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500;
-  }
-  
-  .btn-sm {
-    @apply px-3 py-1.5 text-sm;
-  }
-  
-  .btn-md {
-    @apply px-4 py-2 text-sm;
-  }
-  
-  .btn-lg {
-    @apply px-6 py-3 text-base;
-  }
-  
-  /* Cards */
-  .card {
-    @apply bg-white rounded-lg shadow-card border border-gray-200 dark:bg-gray-800 dark:border-gray-700;
-  }
-  
-  .card-hover {
-    @apply card hover:shadow-card-hover transition-shadow duration-200;
-  }
-  
-  /* Inputs */
-  .input {
-    @apply block w-full rounded-lg border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100;
-  }
-  
-  /* Estados de tareas */
-  .estado-por-hacer {
-    @apply bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200;
-  }
-  
-  .estado-en-progreso {
-    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400;
-  }
-  
-  .estado-en-revision {
-    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400;
-  }
-  
-  .estado-completada {
-    @apply bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400;
-  }
-  
-  .estado-pausada {
-    @apply bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400;
+  50% {
+    opacity: .5;
   }
 }
 
-/* Animaciones */
-@layer utilities {
-  .animate-in {
-    animation: fadeIn 0.3s ease-in-out;
+.loading-dots::after {
+  content: '';
+  animation: loading-dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes loading-dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}
+
+/* Mejoras para accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Estados de focus visible */
+@media (min-width: 768px) {
+  .focus-visible:focus:not(:focus-visible) {
+    outline: none;
+    box-shadow: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
   }
   
-  .slide-in-from-top {
-    animation: slideDown 0.3s ease-out;
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
-  
-  .slide-in-from-bottom {
-    animation: slideUp 0.3s ease-out;
-  }
-  
-  /* Gradientes */
-  .gradient-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-600;
-  }
-  
-  .gradient-success {
-    @apply bg-gradient-to-r from-success-500 to-success-600;
-  }
-  
-  .gradient-danger {
-    @apply bg-gradient-to-r from-danger-500 to-danger-600;
-  }
+} 
+
+/* Estilos globales para SortableJS */
+:global(.sortable-ghost) {
+  opacity: 0.3 !important;
+  background: #e5e7eb !important;
+  border-radius: 8px !important;
+  transform: rotate(2deg) !important;
+  transition: all 0.2s ease !important;
+}
+
+:global(.sortable-chosen) {
+  opacity: 0.9 !important;
+  transform: scale(1.02) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3) !important;
+  z-index: 1000 !important;
+  cursor: grabbing !important;
+}
+
+:global(.sortable-drag) {
+  opacity: 0.8 !important;
+  transform: rotate(3deg) scale(1.05) !important;
+  transition: none !important;
+  cursor: grabbing !important;
 } 

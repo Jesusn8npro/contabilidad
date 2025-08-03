@@ -38,10 +38,12 @@
     "@supabase/auth-ui-svelte": "^0.2.7",
     "@supabase/supabase-js": "^2.38.5",
     "@types/chart.js": "^2.9.41",
+    "@types/sortablejs": "^1.15.8",
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "date-fns": "^3.0.6",
     "lucide-svelte": "^0.294.0",
+    "sortablejs": "^1.15.6",
     "svelte-dnd-action": "^0.9.64",
     "svelte-french-toast": "^1.2.0",
     "zod": "^3.22.4"

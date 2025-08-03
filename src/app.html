@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" %sveltekit.theme%>
+<html lang="es">
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
@@ -24,7 +24,9 @@
 		
 		%sveltekit.head%
 	</head>
-	<body data-sveltekit-preload-data="hover" class="antialiased">
+	<body data-sveltekit-preload-data="hover" class="bg-gray-50 dark:bg-gray-900">
 		<div style="display: contents">%sveltekit.body%</div>
+		<!-- Sonidos personalizables -->
+		<script src="/sonidos.js"></script>
 	</body>
 </html> 

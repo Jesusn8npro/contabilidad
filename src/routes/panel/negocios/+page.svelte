@@ -79,7 +79,9 @@
 	};
 
 	const handleVerDetalle = (negocio: Negocio) => {
-		goto(`/panel/negocios/${negocio.id}`);
+		// Convertir nombre a slug (espacios a guiones, minúsculas)
+		const slug = negocio.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+		goto(`/panel/negocios/${slug}`);
 	};
 
 	const toggleVista = () => {

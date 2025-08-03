@@ -1,7 +1,8 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import type { Proyecto, Tarea, EstadoProyecto, EstadoTarea, PrioridadTarea } from '$lib/tipos/app';
 import { supabase } from '$lib/supabase/cliente';
 import { mostrarError, mostrarExito } from './toast';
+import { generarSlugUnico } from '$lib/utils/slug';
 
 // Estados principales
 export const proyectos = writable<Proyecto[]>([]);
@@ -123,6 +124,46 @@ export const cargarProyecto = async (id: string): Promise<void> => {
     }
 };
 
+// Cargar proyecto por slug
+export const cargarProyectoPorSlug = async (slug: string) => {
+    try {
+        cargandoProyecto.set(true);
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            mostrarError('No hay usuario autenticado');
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('proyectos')
+            .select(`
+                *,
+                negocios:negocio_id (
+                    id,
+                    nombre,
+                    moneda
+                )
+            `)
+            .eq('slug', slug)
+            .eq('usuario_id', user.id)
+            .single();
+
+        if (error) {
+            console.error('Error cargando proyecto por slug:', error);
+            mostrarError('Proyecto no encontrado');
+            return;
+        }
+
+        proyectoActual.set(data);
+    } catch (error) {
+        console.error('Error en cargarProyectoPorSlug:', error);
+        mostrarError('Error al cargar el proyecto');
+    } finally {
+        cargandoProyecto.set(false);
+    }
+};
+
 // Crear nuevo proyecto
 export const crearProyecto = async (proyectoData: Partial<Proyecto>): Promise<Proyecto | null> => {
     try {
@@ -136,7 +177,8 @@ export const crearProyecto = async (proyectoData: Partial<Proyecto>): Promise<Pr
             ...proyectoData,
             usuario_id: user.id,
             fecha_creacion: new Date().toISOString(),
-            fecha_actualizacion: new Date().toISOString()
+            fecha_actualizacion: new Date().toISOString(),
+            slug: generarSlugUnico(proyectoData.nombre || '') // Generar slug automáticamente
         };
 
         const { data, error } = await supabase
@@ -230,18 +272,24 @@ export const eliminarProyecto = async (id: string): Promise<boolean> => {
     }
 };
 
-// ==================== FUNCIONES DE TAREAS ====================
+// ==================== FUNCIONES DE TAREAS MIXTAS ====================
 
-// Cargar tareas de un proyecto
-export const cargarTareasProyecto = async (proyectoId: string): Promise<void> => {
+// Cargar todas las tareas del usuario
+export const cargarTareasUsuario = async (): Promise<void> => {
     try {
         cargandoTareas.set(true);
         
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            mostrarError('No hay usuario autenticado');
+            return;
+        }
+
         const { data, error } = await supabase
-            .from('tareas')
+            .from('vista_tareas_completas')
             .select('*')
-            .eq('proyecto_id', proyectoId)
-            .order('orden', { ascending: true });
+            .eq('usuario_id', user.id)
+            .order('fecha_creacion', { ascending: false });
 
         if (error) {
             console.error('Error cargando tareas:', error);
@@ -251,28 +299,152 @@ export const cargarTareasProyecto = async (proyectoId: string): Promise<void> =>
 
         tareas.set(data || []);
     } catch (error) {
-        console.error('Error en cargarTareasProyecto:', error);
+        console.error('Error en cargarTareasUsuario:', error);
         mostrarError('Error al cargar las tareas');
     } finally {
         cargandoTareas.set(false);
     }
 };
 
-// Crear nueva tarea
+// Cargar tareas de un proyecto específico
+export const cargarTareasProyecto = async (proyectoId: string): Promise<void> => {
+    try {
+        cargandoTareas.set(true);
+        
+        const { data, error } = await supabase
+            .from('vista_tareas_completas')
+            .select('*')
+            .eq('proyecto_id', proyectoId)
+            .order('orden', { ascending: true });
+
+        if (error) {
+            console.error('Error cargando tareas del proyecto:', error);
+            mostrarError('Error al cargar las tareas del proyecto');
+            return;
+        }
+
+        tareas.set(data || []);
+    } catch (error) {
+        console.error('Error en cargarTareasProyecto:', error);
+        mostrarError('Error al cargar las tareas del proyecto');
+    } finally {
+        cargandoTareas.set(false);
+    }
+};
+
+// Cargar tareas de un negocio específico
+export const cargarTareasNegocio = async (negocioId: string): Promise<void> => {
+    try {
+        cargandoTareas.set(true);
+        
+        const { data, error } = await supabase
+            .from('vista_tareas_completas')
+            .select('*')
+            .eq('negocio_id', negocioId)
+            .order('fecha_creacion', { ascending: false });
+
+        if (error) {
+            console.error('Error cargando tareas del negocio:', error);
+            mostrarError('Error al cargar las tareas del negocio');
+            return;
+        }
+
+        tareas.set(data || []);
+    } catch (error) {
+        console.error('Error en cargarTareasNegocio:', error);
+        mostrarError('Error al cargar las tareas del negocio');
+    } finally {
+        cargandoTareas.set(false);
+    }
+};
+
+// Crear nueva tarea (mixta: para proyecto o negocio)
 export const crearTarea = async (tareaData: Partial<Tarea>): Promise<Tarea | null> => {
     try {
+        console.log('🚀 Iniciando creación de tarea...', tareaData);
+        
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
+            console.error('❌ No hay usuario autenticado');
             mostrarError('No hay usuario autenticado');
             return null;
         }
+        
+        console.log('✅ Usuario autenticado:', user.id);
 
+        // Validar que tenga un contexto válido
+        if (!tareaData.proyecto_id && !tareaData.negocio_id) {
+            console.error('❌ Falta contexto (proyecto_id o negocio_id)');
+            mostrarError('La tarea debe estar asociada a un proyecto o negocio');
+            return null;
+        }
+        
+        console.log('✅ Contexto válido:', {
+            proyecto_id: tareaData.proyecto_id,
+            negocio_id: tareaData.negocio_id
+        });
+
+        // Generar orden para la nueva tarea
+        let orden = 1;
+        if (tareaData.proyecto_id) {
+            console.log('🔄 Calculando orden para proyecto...');
+            // Para proyectos, obtener el siguiente orden en la columna
+            const { data: tareasExistentes, error: errorOrden } = await supabase
+                .from('tareas')
+                .select('orden')
+                .eq('proyecto_id', tareaData.proyecto_id)
+                .eq('columna', tareaData.columna || tareaData.estado || 'por-hacer')
+                .order('orden', { ascending: false })
+                .limit(1);
+            
+            if (errorOrden) {
+                console.error('❌ Error al obtener orden:', errorOrden);
+            }
+            
+            if (tareasExistentes && tareasExistentes.length > 0) {
+                orden = tareasExistentes[0].orden + 1;
+            }
+            console.log('✅ Orden calculado:', orden);
+        } else if (tareaData.negocio_id) {
+            console.log('🔄 Calculando orden para negocio...');
+            // Para negocios, obtener el siguiente orden general
+            const { data: tareasExistentes, error: errorOrden } = await supabase
+                .from('tareas')
+                .select('orden')
+                .eq('negocio_id', tareaData.negocio_id)
+                .order('orden', { ascending: false })
+                .limit(1);
+            
+            if (errorOrden) {
+                console.error('❌ Error al obtener orden:', errorOrden);
+            }
+            
+            if (tareasExistentes && tareasExistentes.length > 0) {
+                orden = tareasExistentes[0].orden + 1;
+            }
+            console.log('✅ Orden calculado:', orden);
+        }
+
+        // Limpiar datos antes de enviar
         const nuevaTarea = {
-            ...tareaData,
             usuario_id: user.id,
+            proyecto_id: tareaData.proyecto_id || null,
+            negocio_id: tareaData.negocio_id || null,
+            titulo: tareaData.titulo?.trim() || '',
+            descripcion: tareaData.descripcion?.trim() || null,
+            estado: tareaData.estado || 'por-hacer',
+            prioridad: tareaData.prioridad || 'media',
+            fecha_limite: tareaData.fecha_limite || null,
+            fecha_inicio: tareaData.fecha_inicio || null,
+            tiempo_estimado_horas: tareaData.tiempo_estimado_horas && tareaData.tiempo_estimado_horas > 0 ? tareaData.tiempo_estimado_horas : null,
+            etiquetas: tareaData.etiquetas && tareaData.etiquetas.length > 0 ? tareaData.etiquetas : null,
             fecha_creacion: new Date().toISOString(),
-            fecha_actualizacion: new Date().toISOString()
+            fecha_actualizacion: new Date().toISOString(),
+            orden,
+            columna: tareaData.columna || tareaData.estado || 'por-hacer'
         };
+
+        console.log('📝 Datos finales de la tarea:', nuevaTarea);
 
         const { data, error } = await supabase
             .from('tareas')
@@ -281,17 +453,27 @@ export const crearTarea = async (tareaData: Partial<Tarea>): Promise<Tarea | nul
             .single();
 
         if (error) {
-            console.error('Error creando tarea:', error);
-            mostrarError('Error al crear la tarea');
+            console.error('❌ Error de Supabase:', error);
+            console.error('❌ Error detallado:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
+            mostrarError(`Error al crear la tarea: ${error.message}`);
             return null;
         }
 
+        console.log('✅ Tarea creada exitosamente:', data);
+
         // Actualizar store local
-        tareas.update(lista => [...lista, data]);
+        tareas.update(lista => [data, ...lista]);
+        
         mostrarExito('Tarea creada exitosamente');
         return data;
     } catch (error) {
-        console.error('Error en crearTarea:', error);
+        console.error('💥 Error general en crearTarea:', error);
+        console.error('💥 Stack trace:', error instanceof Error ? error.stack : 'No stack available');
         mostrarError('Error al crear la tarea');
         return null;
     }
@@ -326,42 +508,75 @@ export const actualizarTarea = async (id: string, updates: Partial<Tarea>): Prom
     }
 };
 
-// Mover tarea en el Kanban
+// Mover tarea en el Kanban - VERSIÓN SÚPER RÁPIDA Y EFECTIVA
 export const moverTarea = async (
     tareaId: string, 
-    nuevaColumna: string, 
+    nuevoEstado: EstadoTarea, 
     nuevoOrden: number
 ): Promise<boolean> => {
+    console.log('🚀🚀🚀 MOVER TAREA - VERSIÓN SÚPER RÁPIDA');
+    console.log('📋 Datos:', { tareaId, nuevoEstado, nuevoOrden });
+    
     try {
-        const updates: Partial<Tarea> = {
-            columna: nuevaColumna,
-            orden: nuevoOrden
+        // 1. ACTUALIZAR INMEDIATAMENTE EN EL STORE (optimistic update)
+        let tareaAnterior: Tarea | null = null;
+        
+        tareas.update(lista => {
+            return lista.map(tarea => {
+                if (tarea.id === tareaId) {
+                    tareaAnterior = { ...tarea }; // Backup para rollback
+                    console.log(`⚡ ACTUALIZACIÓN INMEDIATA: "${tarea.titulo}" → ${nuevoEstado}`);
+                    return {
+                        ...tarea,
+                        estado: nuevoEstado,
+                        columna: nuevoEstado,
+                        orden: nuevoOrden,
+                        fecha_actualizacion: new Date().toISOString(),
+                        ...(nuevoEstado === 'completada' && { fecha_completado: new Date().toISOString() })
+                    };
+                }
+                return tarea;
+            });
+        });
+
+        // 2. CONFIRMAR EN BASE DE DATOS EN BACKGROUND
+        const updates = {
+            estado: nuevoEstado,
+            columna: nuevoEstado,
+            orden: nuevoOrden,
+            fecha_actualizacion: new Date().toISOString(),
+            ...(nuevoEstado === 'completada' && { fecha_completado: new Date().toISOString() })
         };
 
-        // Si se mueve a completada, agregar fecha
-        if (nuevaColumna === 'completada') {
-            updates.estado = 'completada';
-            updates.fecha_completado = new Date().toISOString();
-        } else {
-            // Mapear columna a estado
-            switch (nuevaColumna) {
-                case 'por-hacer':
-                    updates.estado = 'por-hacer';
-                    break;
-                case 'en-progreso':
-                    updates.estado = 'en-progreso';
-                    break;
-                case 'en-revision':
-                    updates.estado = 'en-revision';
-                    break;
-                default:
-                    updates.estado = 'por-hacer';
+        console.log('💾 Confirmando en Supabase...');
+        const { error } = await supabase
+            .from('tareas')
+            .update(updates)
+            .eq('id', tareaId);
+
+        if (error) {
+            console.error('❌ ERROR EN SUPABASE:', error);
+            
+            // ROLLBACK - Restaurar estado anterior
+            if (tareaAnterior) {
+                console.log('🔄 ROLLBACK activado');
+                tareas.update(lista => {
+                    return lista.map(tarea => 
+                        tarea.id === tareaId ? tareaAnterior! : tarea
+                    );
+                });
             }
+            
+            mostrarError(`Error: ${error.message}`);
+            return false;
         }
 
-        return await actualizarTarea(tareaId, updates);
+        console.log('✅ TAREA MOVIDA EXITOSAMENTE - UI YA ACTUALIZADA');
+        mostrarExito(`Tarea movida a ${nuevoEstado}`);
+        return true;
+        
     } catch (error) {
-        console.error('Error en moverTarea:', error);
+        console.error('💥 ERROR CRÍTICO:', error);
         mostrarError('Error al mover la tarea');
         return false;
     }

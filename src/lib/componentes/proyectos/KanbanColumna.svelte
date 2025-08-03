@@ -1,45 +1,44 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import { dndzone } from 'svelte-dnd-action';
+	import { dndzone, TRIGGERS } from 'svelte-dnd-action';
 	import type { Tarea, EstadoTarea } from '$lib/tipos/app';
 	import { ESTADOS_TAREA } from '$lib/tipos/app';
 	import TarjetaTarea from './TarjetaTarea.svelte';
-	import Boton from '$lib/componentes/ui/Boton.svelte';
 
 	// Props
 	export let estado: EstadoTarea;
 	export let tareas: Tarea[] = [];
 	export let titulo: string = '';
 	export let color: string = '';
-	export let maxItems: number | null = null;
 
 	// Event dispatcher
 	const dispatch = createEventDispatcher<{
-		consider: { items: Tarea[]; info: any };
-		finalize: { items: Tarea[]; info: any };
-		crearTarea: { estado: EstadoTarea };
-		editarTarea: { tarea: Tarea };
-		eliminarTarea: { tarea: Tarea };
+		'tarea-movida': { tarea: Tarea; nuevoEstado: EstadoTarea; nuevoOrden: number };
+		'crear-tarea': { estado: EstadoTarea };
+		'editar-tarea': { tarea: Tarea };
+		'eliminar-tarea': { tarea: Tarea };
 	}>();
-
-	// Configuración DND
-	const flipDurationMs = 300;
-	let dragDisabled = false;
 
 	// Datos derivados
 	$: estadoInfo = ESTADOS_TAREA[estado];
 	$: tituloFinal = titulo || estadoInfo.label;
 	$: cantidadTareas = tareas.length;
-	$: estaLlena = maxItems !== null && cantidadTareas >= maxItems;
+
+	// CLAVE: Crear copias completamente independientes para cada columna
+	$: itemsLocales = tareas.map((tarea, index) => ({
+		id: tarea.id, // ID real de la tarea
+		tareaOriginal: tarea, // Referencia a la tarea original
+		orden: index
+	}));
 
 	// Clases de color por estado
 	$: clasesColor = {
-		'por-hacer': 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
-		'en-progreso': 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
-		'en-revision': 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
-		'completada': 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-		'pausada': 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+		'por-hacer': 'bg-gray-50 dark:bg-gray-800',
+		'en-progreso': 'bg-blue-50 dark:bg-blue-900/20',
+		'en-revision': 'bg-yellow-50 dark:bg-yellow-900/20',
+		'completada': 'bg-green-50 dark:bg-green-900/20',
+		'pausada': 'bg-red-50 dark:bg-red-900/20'
 	}[estado];
 
 	// Clases para header
@@ -51,69 +50,86 @@
 		'pausada': 'text-red-700 dark:text-red-300'
 	}[estado];
 
-	// Handlers de DND
-	const handleDndConsider = (e: CustomEvent) => {
-		const { items, info } = e.detail;
-		dispatch('consider', { items, info });
-	};
+	// Variable para manejar el estado durante drag
+	let items = itemsLocales;
+	
+	// Actualizar items cuando cambien las tareas
+	$: {
+		items = itemsLocales;
+	}
 
-	const handleDndFinalize = (e: CustomEvent) => {
-		const { items, info } = e.detail;
-		dragDisabled = false;
-		dispatch('finalize', { items, info });
-	};
+	// Handlers de DND - SIMPLIFICADOS
+	function handleConsider(e: CustomEvent) {
+		const { items: newItems } = e.detail;
+		items = newItems;
+	}
+
+	function handleFinalize(e: CustomEvent) {
+		const { items: finalItems, info } = e.detail;
+		
+		console.log(`🎯 Finalize en ${estado}:`, {
+			trigger: info.trigger,
+			id: info.id,
+			source: info.source
+		});
+
+		// Solo procesar si es un drop real de usuario
+		if (info.trigger === TRIGGERS.DROPPED_INTO_ZONE) {
+			const itemDropeado = finalItems.find((item: any) => item.id === info.id);
+			
+			if (itemDropeado && itemDropeado.tareaOriginal) {
+				const nuevoOrden = finalItems.findIndex((item: any) => item.id === info.id);
+				
+				console.log(`🚀 Moviendo tarea "${itemDropeado.tareaOriginal.titulo}" a ${estado}`);
+				
+				// Disparar evento
+				dispatch('tarea-movida', {
+					tarea: itemDropeado.tareaOriginal,
+					nuevoEstado: estado,
+					nuevoOrden
+				});
+			}
+		}
+		
+		// Actualizar items locales
+		items = finalItems;
+	}
 
 	// Handlers de tareas
-	const handleCrearTarea = () => {
-		dispatch('crearTarea', { estado });
-	};
+	function handleCrearTarea() {
+		dispatch('crear-tarea', { estado });
+	}
 
-	const handleEditarTarea = (event: CustomEvent<{ tarea: Tarea }>) => {
-		dispatch('editarTarea', event.detail);
-	};
+	function handleEditarTarea(event: CustomEvent) {
+		dispatch('editar-tarea', event.detail);
+	}
 
-	const handleEliminarTarea = (event: CustomEvent<{ tarea: Tarea }>) => {
-		dispatch('eliminarTarea', event.detail);
-	};
-
-	// Transformar tareas para DND (agregar id único si no existe)
-	$: tareasConId = tareas.map(tarea => ({
-		...tarea,
-		id: tarea.id || `temp-${Math.random()}` // Fallback por si acaso
-	}));
+	function handleEliminarTarea(event: CustomEvent) {
+		dispatch('eliminar-tarea', event.detail);
+	}
 </script>
 
-<!-- Columna Kanban -->
-<div class="flex flex-col h-full min-w-80 max-w-80">
-	<!-- Header de la columna -->
-	<div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
+<!-- Columna Kanban SIMPLE -->
+<div 
+	class="flex flex-col h-full min-w-80 max-w-80 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
+	data-estado={estado}
+>
+	<!-- Header -->
+	<div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
 		<div class="flex items-center space-x-3">
-			<!-- Indicador de color -->
 			{#if color}
 				<div class="w-3 h-3 rounded-full" style="background-color: {color}"></div>
 			{/if}
-			
 			<div>
-				<h3 class="font-semibold {clasesHeader}">
-					{tituloFinal}
-				</h3>
-				<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+				<h3 class="font-semibold {clasesHeader}">{tituloFinal}</h3>
+				<p class="text-xs text-gray-500 dark:text-gray-400">
 					{cantidadTareas} {cantidadTareas === 1 ? 'tarea' : 'tareas'}
-					{#if maxItems !== null}
-						/ {maxItems} máx
-					{/if}
 				</p>
 			</div>
 		</div>
-
-		<!-- Botón agregar tarea -->
 		<button
-			class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors {
-				estaLlena ? 'opacity-50 cursor-not-allowed' : ''
-			}"
+			class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
 			on:click={handleCrearTarea}
-			disabled={estaLlena}
-			title="Agregar nueva tarea"
 		>
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -121,50 +137,44 @@
 		</button>
 	</div>
 
-	<!-- Área de drop para tareas -->
+	<!-- Drop Zone -->
 	<div 
-		class="flex-1 p-4 overflow-y-auto custom-scrollbar {clasesColor} rounded-b-xl"
-		use:dndzone={{ 
-			items: tareasConId, 
-			flipDurationMs,
-			dragDisabled,
-			dropTargetStyle: {},
-			morphDisabled: true,
-			type: 'tarea'
+		class="flex-1 p-4 {clasesColor} min-h-32 overflow-y-auto"
+		data-drop-zone={estado}
+		use:dndzone={{
+			items,
+			flipDurationMs: 300,
+			type: 'tarea',
+			dragDisabled: false,
+			morphDisabled: false
 		}}
-		on:consider={handleDndConsider}
-		on:finalize={handleDndFinalize}
+		on:consider={handleConsider}
+		on:finalize={handleFinalize}
 	>
-		{#if tareasConId.length === 0}
-			<!-- Estado vacío -->
+		{#if items.length === 0}
+			<!-- Empty state -->
 			<div class="text-center py-8">
-				<div class="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 opacity-50">
-					<svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-					</svg>
-				</div>
 				<p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
 					No hay tareas {estadoInfo.label.toLowerCase()}
 				</p>
-				<Boton
-					variante="ghost"
-					size="sm"
-					icono="plus"
+				<button
+					class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
 					on:click={handleCrearTarea}
-					disabled={estaLlena}
 				>
+					<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+					</svg>
 					Agregar tarea
-				</Boton>
+				</button>
 			</div>
 		{:else}
-			<!-- Lista de tareas -->
+			<!-- Task list -->
 			<div class="space-y-3">
-				{#each tareasConId as tarea (tarea.id)}
-					<div animate:flip={{ duration: flipDurationMs }}>
+				{#each items as item (item.id)}
+					<div animate:flip={{ duration: 300 }}>
 						<TarjetaTarea
-							{tarea}
+							tarea={item.tareaOriginal}
 							draggable={true}
-							isDragging={dragDisabled}
 							on:editar={handleEditarTarea}
 							on:eliminar={handleEliminarTarea}
 						/>
@@ -172,51 +182,5 @@
 				{/each}
 			</div>
 		{/if}
-
-		<!-- Indicador visual de drop zone activa -->
-		<div class="mt-4 border-2 border-dashed border-transparent rounded-lg p-4 transition-colors drop-target-highlight">
-			<div class="text-center text-sm text-gray-400 dark:text-gray-500">
-				Arrastra tareas aquí
-			</div>
-		</div>
 	</div>
-</div>
-
-<style>
-	/* Scrollbar personalizado */
-	.custom-scrollbar {
-		scrollbar-width: thin;
-		scrollbar-color: rgb(156 163 175) transparent;
-	}
-
-	.custom-scrollbar::-webkit-scrollbar {
-		width: 6px;
-	}
-
-	.custom-scrollbar::-webkit-scrollbar-track {
-		background: transparent;
-	}
-
-	.custom-scrollbar::-webkit-scrollbar-thumb {
-		background-color: rgb(156 163 175);
-		border-radius: 3px;
-	}
-
-	.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-		background-color: rgb(107 114 128);
-	}
-
-	/* Estilos para DND */
-	:global(.drop-target-highlight) {
-		border-color: rgb(59 130 246) !important;
-		background-color: rgb(59 130 246 / 0.05) !important;
-	}
-
-	/* Estilo para elementos siendo arrastrados */
-	:global(.dnd-dragging) {
-		opacity: 0.8;
-		transform: rotate(3deg) scale(1.02);
-		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
-		z-index: 1000;
-	}
-</style> 
+</div> 
