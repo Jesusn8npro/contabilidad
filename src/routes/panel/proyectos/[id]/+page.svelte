@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { derived } from 'svelte/store';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { 
 		cargarProyecto, 
 		cargarTareasProyecto, 
 		proyectoActual, 
-		tareasProyectoActual,
+		tareas,
 		cargandoProyecto,
 		cargandoTareas,
 		moverTarea,
@@ -28,6 +29,12 @@
 	let mostrarFormularioTarea = false;
 	let estadoTareaNueva: EstadoTarea = 'por-hacer';
 	let tareaEditando: Tarea | null = null;
+
+	// Store derivado para las tareas del proyecto actual
+	$: tareasProyectoActual = derived(
+		[tareas, page], 
+		([$tareas, $page]) => $tareas.filter(tarea => tarea.proyecto_id === $page.params.id)
+	);
 
 	// Cargar datos al montar o cambiar ID
 	$: if (proyectoId) {

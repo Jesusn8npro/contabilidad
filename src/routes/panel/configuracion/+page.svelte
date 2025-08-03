@@ -180,7 +180,13 @@
         localStorage.setItem('tema', nuevoTema);
     };
 
-    // Calcular porcentaje de uso
+    // Calcular porcentajes de uso reactivamente
+    $: porcentajeProyectos = calcularPorcentajeUso(limitesActuales.proyectos.usado, limitesActuales.proyectos.limite);
+    $: porcentajeNegocios = calcularPorcentajeUso(limitesActuales.negocios.usado, limitesActuales.negocios.limite);
+    $: porcentajeMovimientos = calcularPorcentajeUso(limitesActuales.movimientos_mes.usado, limitesActuales.movimientos_mes.limite);
+    $: porcentajeCampanas = calcularPorcentajeUso(limitesActuales.campanas.usado, limitesActuales.campanas.limite);
+
+    // Función para calcular porcentaje de uso
     const calcularPorcentajeUso = (usado: number, limite: number): number => {
         return limite > 0 ? Math.round((usado / limite) * 100) : 0;
     };
@@ -274,10 +280,9 @@
                         </span>
                     </div>
                     <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        {@const porcentaje = calcularPorcentajeUso(limitesActuales.proyectos.usado, limitesActuales.proyectos.limite)}
                         <div 
-                            class="h-2 rounded-full transition-all duration-300 {obtenerColorBarra(porcentaje)}"
-                            style="width: {porcentaje}%"
+                            class="h-2 rounded-full transition-all duration-300 {obtenerColorBarra(porcentajeProyectos)}"
+                            style="width: {porcentajeProyectos}%"
                         ></div>
                     </div>
                 </div>
@@ -291,10 +296,9 @@
                         </span>
                     </div>
                     <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        {@const porcentaje = calcularPorcentajeUso(limitesActuales.negocios.usado, limitesActuales.negocios.limite)}
                         <div 
-                            class="h-2 rounded-full transition-all duration-300 {obtenerColorBarra(porcentaje)}"
-                            style="width: {porcentaje}%"
+                            class="h-2 rounded-full transition-all duration-300 {obtenerColorBarra(porcentajeNegocios)}"
+                            style="width: {porcentajeNegocios}%"
                         ></div>
                     </div>
                 </div>
@@ -308,10 +312,9 @@
                         </span>
                     </div>
                     <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        {@const porcentaje = calcularPorcentajeUso(limitesActuales.movimientos_mes.usado, limitesActuales.movimientos_mes.limite)}
                         <div 
-                            class="h-2 rounded-full transition-all duration-300 {obtenerColorBarra(porcentaje)}"
-                            style="width: {porcentaje}%"
+                            class="h-2 rounded-full transition-all duration-300 {obtenerColorBarra(porcentajeMovimientos)}"
+                            style="width: {porcentajeMovimientos}%"
                         ></div>
                     </div>
                 </div>
@@ -325,10 +328,9 @@
                         </span>
                     </div>
                     <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        {@const porcentaje = calcularPorcentajeUso(limitesActuales.campanas.usado, limitesActuales.campanas.limite)}
                         <div 
-                            class="h-2 rounded-full transition-all duration-300 {obtenerColorBarra(porcentaje)}"
-                            style="width: {porcentaje}%"
+                            class="h-2 rounded-full transition-all duration-300 {obtenerColorBarra(porcentajeCampanas)}"
+                            style="width: {porcentajeCampanas}%"
                         ></div>
                     </div>
                 </div>

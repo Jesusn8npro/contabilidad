@@ -221,7 +221,12 @@
 			<div class="lg:hidden">
 				<div class="fixed inset-0 z-50 flex">
 					<!-- Overlay -->
-					<div class="fixed inset-0 bg-black/50 backdrop-blur-sm" on:click={cerrarMenus}></div>
+					<button
+						class="fixed inset-0 bg-black/50 backdrop-blur-sm cursor-pointer"
+						on:click={cerrarMenus}
+						aria-label="Cerrar menú"
+						type="button"
+					></button>
 					
 					<!-- Panel del menú -->
 					<div class="relative flex w-full max-w-xs flex-col bg-white dark:bg-gray-800 shadow-xl">
