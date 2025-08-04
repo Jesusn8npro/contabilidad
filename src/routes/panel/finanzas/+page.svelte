@@ -22,13 +22,19 @@
 	} from 'lucide-svelte';
 	import Boton from '$lib/componentes/ui/Boton.svelte';
 	import Input from '$lib/componentes/ui/Input.svelte';
+	import Modal from '$lib/componentes/ui/Modal.svelte';
+	import FormularioMovimiento from '$lib/componentes/movimientos/FormularioMovimiento.svelte';
 	import TarjetaMovimiento from '$lib/componentes/movimientos/TarjetaMovimiento.svelte';
-	import { movimientos, cargarMovimientos, cargandoMovimientos } from '$lib/stores/movimientos';
+	import { movimientos, cargarMovimientos, cargandoMovimientos, crearMovimiento } from '$lib/stores/movimientos';
 	import { negocios, cargarNegocios, cargandoNegocios } from '$lib/stores/negocios';
+	import { categorias, cargarCategorias } from '$lib/stores/movimientos';
+	import { abrirModal, cerrarModal } from '$lib/stores/ui';
 
 	// Estado local
 	let periodoSeleccionado = 'este-mes';
 	let tipoGrafico = 'barras';
+	let modalMovimiento = false;
+	let guardandoMovimiento = false;
 
 	// Métricas calculadas en tiempo real
 	$: metricasFinancieras = {
@@ -116,31 +122,47 @@
 				<p class="text-blue-100 mt-1 text-sm sm:text-base">Dashboard financiero completo con métricas y análisis</p>
 			</div>
 			
-			<div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
-				<select 
-					bind:value={periodoSeleccionado}
-					class="px-3 sm:px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/50"
+			<!-- Botones de acción épicos -->
+			<div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+				<!-- Botón Exportar -->
+				<button
+					class="group relative flex items-center justify-center px-6 py-3 overflow-hidden text-sm font-semibold text-white transition-all duration-300 ease-out bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-white/25 transform hover:shadow-2xl hover:shadow-white/20 w-full sm:w-auto"
 				>
-					<option value="hoy">Hoy</option>
-					<option value="esta-semana">Esta Semana</option>
-					<option value="este-mes">Este Mes</option>
-					<option value="este-ano">Este Año</option>
-				</select>
-				
-				<Boton 
-					variante="secondary" 
-					clase="border-white/20 text-white hover:bg-white/10 text-sm"
+					<span class="absolute inset-0 w-full h-full bg-gradient-to-r from-white/10 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+					<Download class="relative w-4 h-4 mr-2 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
+					<span class="relative font-bold">Exportar</span>
+					<div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-all duration-300"></div>
+				</button>
+					
+				<!-- Botón Nuevo Movimiento -->
+				<button
+					on:click={abrirModalMovimiento}
+					class="group relative flex items-center justify-center px-8 py-3 overflow-hidden text-sm font-bold text-blue-600 transition-all duration-300 ease-out bg-white rounded-xl shadow-lg hover:shadow-2xl hover:shadow-white/50 focus:outline-none focus:ring-4 focus:ring-white/50 transform hover:scale-110 hover:-translate-y-1 active:translate-y-0 w-full sm:w-auto"
 				>
-					<Download class="w-4 h-4 mr-2" />
-					Exportar
-				</Boton>
-				
-				<Boton 
-					clase="bg-white text-blue-600 hover:bg-gray-50 text-sm"
-				>
-					<Plus class="w-4 h-4 mr-2" />
-					Nuevo Movimiento
-				</Boton>
+					<!-- Efecto shimmer -->
+					<span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-blue-200/30 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-shimmer transition-opacity duration-300"></span>
+					
+					<!-- Contenido del botón -->
+					<div class="relative flex items-center">
+						<div class="relative">
+							<Plus class="w-5 h-5 mr-3 transition-all duration-300 group-hover:scale-125 group-hover:rotate-180" />
+							<!-- Efecto de brillo en el ícono -->
+							<div class="absolute inset-0 w-5 h-5 bg-blue-300/40 rounded-full opacity-0 group-hover:opacity-100 animate-ping"></div>
+						</div>
+						<span class="font-black text-lg">Nuevo Movimiento</span>
+						<div class="w-2 h-2 bg-blue-400 rounded-full ml-3 animate-pulse group-hover:animate-bounce"></div>
+					</div>
+					
+					<!-- Partículas mágicas -->
+					<div class="absolute inset-0 pointer-events-none">
+						<div class="absolute top-2 left-4 w-1 h-1 bg-blue-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-300"></div>
+						<div class="absolute top-4 right-6 w-1 h-1 bg-purple-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-500"></div>
+						<div class="absolute bottom-3 left-6 w-1 h-1 bg-green-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-700"></div>
+					</div>
+					
+					<!-- Efecto de onda -->
+					<div class="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/20 to-purple-400/20 opacity-0 group-hover:opacity-100 scale-0 group-hover:scale-150 transition-all duration-700"></div>
+				</button>
 			</div>
 		</div>
 	</div>

@@ -12,7 +12,7 @@
 	import ToastContainer from '$lib/componentes/ui/ToastContainer.svelte';
 
 	// Rutas que no requieren autenticación
-	const rutasPublicas = ['/iniciar-sesion', '/registrarse'];
+	const rutasPublicas = ['/', '/iniciar-sesion', '/registrarse'];
 
 	// Inicializar autenticación al montar el componente
 	onMount(async () => {
@@ -28,8 +28,8 @@
 			if (!$autenticado && !esRutaPublica) {
 				// Usuario no autenticado en ruta protegida
 				goto('/iniciar-sesion');
-			} else if ($autenticado && esRutaPublica) {
-				// Usuario autenticado en ruta pública
+			} else if ($autenticado && (rutaActual === '/iniciar-sesion' || rutaActual === '/registrarse')) {
+				// Usuario autenticado solo se redirige desde páginas de auth específicas
 				goto('/panel');
 			}
 		}

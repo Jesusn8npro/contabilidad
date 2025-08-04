@@ -114,169 +114,260 @@
 	};
 </script>
 
-<div class="space-y-6">
-	<!-- Header del formulario -->
-	<div class="flex items-center space-x-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-		<div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
-			<Building2 class="w-6 h-6 text-white" />
+<!-- Header del formulario épico -->
+<div class="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-3xl p-8 text-white mb-8 -mx-6 -mt-6">
+	<!-- Elementos decorativos de fondo -->
+	<div class="absolute inset-0">
+		<div class="absolute top-4 right-8 w-20 h-20 bg-white/10 rounded-full blur-xl animate-pulse"></div>
+		<div class="absolute bottom-6 left-6 w-16 h-16 bg-blue-300/20 rounded-full blur-lg animate-pulse delay-500"></div>
+		<div class="absolute top-1/2 right-1/4 w-12 h-12 bg-purple-300/20 rounded-full blur-md animate-bounce"></div>
+	</div>
+	
+	<div class="relative z-10 flex items-center space-x-6">
+		<!-- Ícono épico -->
+		<div class="relative">
+			<div class="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30 shadow-2xl transform hover:scale-110 hover:rotate-12 transition-all duration-300">
+				<Building2 class="w-10 h-10 text-white" />
+			</div>
+			<!-- Efecto de brillo -->
+			<div class="absolute inset-0 w-20 h-20 bg-yellow-300/20 rounded-2xl opacity-0 hover:opacity-100 animate-ping transition-opacity"></div>
 		</div>
-		<div>
-			<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-				{negocio ? 'Editar Negocio' : 'Nuevo Negocio'}
-			</h3>
-			<p class="text-sm text-gray-600 dark:text-gray-400">
-				{negocio ? 'Modifica la información del negocio' : 'Crea un nuevo negocio para gestionar tus finanzas'}
+		
+		<!-- Contenido del header -->
+		<div class="flex-1">
+			<div class="flex items-center space-x-3 mb-2">
+				<h3 class="text-3xl font-black bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+					{negocio ? 'Editar Negocio' : 'Nuevo Negocio'}
+				</h3>
+				{#if negocio}
+					<span class="px-3 py-1 bg-green-500/20 text-green-100 rounded-full text-sm font-semibold border border-green-400/30">
+						Editando: {negocio.nombre}
+					</span>
+				{:else}
+					<span class="px-3 py-1 bg-yellow-500/20 text-yellow-100 rounded-full text-sm font-semibold border border-yellow-400/30 animate-pulse">
+						✨ Nuevo
+					</span>
+				{/if}
+			</div>
+			<p class="text-blue-100 text-lg leading-relaxed max-w-2xl">
+				{negocio 
+					? 'Modifica la información del negocio y mantén actualizada tu gestión financiera' 
+					: 'Crea un nuevo negocio para organizar y gestionar tus finanzas de manera profesional'}
 			</p>
+			
+			<!-- Indicadores de progreso -->
+			<div class="flex items-center space-x-4 mt-4">
+				<div class="flex items-center space-x-2">
+					<div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+					<span class="text-green-200 text-sm font-medium">Formulario Inteligente</span>
+				</div>
+				<div class="flex items-center space-x-2">
+					<div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-300"></div>
+					<span class="text-blue-200 text-sm font-medium">Validación Automática</span>
+				</div>
+				<div class="flex items-center space-x-2">
+					<div class="w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-500"></div>
+					<span class="text-purple-200 text-sm font-medium">Guardado Seguro</span>
+				</div>
+			</div>
 		</div>
 	</div>
+</div>
 
+<div class="space-y-6">
 	<!-- Formulario -->
-	<div class="space-y-6">
-		<!-- Nombre del negocio -->
-		<div>
-			<Input
-				tipo="text"
-				etiqueta="Nombre del Negocio"
-				bind:valor={formulario.nombre}
-				placeholder="Ej: Mi Consultoría Digital"
-				obligatorio
-				error={errores.nombre}
-				ayuda="Un nombre claro y profesional para tu negocio"
-				on:blur={() => {
-					marcarTocado('nombre');
-					validarCampo('nombre', formulario.nombre);
-				}}
-			/>
-		</div>
-
-		<!-- Tipo de negocio -->
-		<div>
-			<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-				Tipo de Negocio *
-			</label>
-			<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-				{#each tiposNegocio as tipo}
-					<label class="relative">
-						<input
-							type="radio"
-							bind:group={formulario.tipo_negocio}
-							value={tipo.valor}
-							class="sr-only"
-							on:change={() => {
-								marcarTocado('tipo_negocio');
-								validarCampo('tipo_negocio', formulario.tipo_negocio);
-							}}
-						/>
-						<div class="cursor-pointer border-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md {
-							formulario.tipo_negocio === tipo.valor 
-								? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
-								: 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-						}">
-							<div class="text-center">
-								<div class="text-2xl mb-2">{tipo.icono}</div>
-								<div class="font-medium text-gray-900 dark:text-white text-sm">
-									{tipo.nombre}
-								</div>
-								<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-									{tipo.descripcion}
-								</div>
-							</div>
-						</div>
-					</label>
-				{/each}
-			</div>
-			{#if errores.tipo_negocio}
-				<p class="text-sm text-red-600 dark:text-red-400 mt-2 flex items-center space-x-1">
-					<span>{errores.tipo_negocio}</span>
-				</p>
-			{/if}
-		</div>
-
-		<!-- Descripción -->
-		<div>
-			<Input
-				tipo="textarea"
-				etiqueta="Descripción del Negocio"
-				bind:valor={formulario.descripcion}
-				placeholder="Describe brevemente tu negocio, servicios que ofreces, productos que vendes..."
-				filas={4}
-				error={errores.descripcion}
-				ayuda="Opcional: Información adicional sobre tu negocio"
-				on:blur={() => {
-					marcarTocado('descripcion');
-					validarCampo('descripcion', formulario.descripcion);
-				}}
-			/>
-		</div>
-
-		<!-- Moneda -->
-		<div>
-			<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-				Moneda Principal *
-			</label>
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-				{#each monedas as moneda}
-					<label class="relative">
-						<input
-							type="radio"
-							bind:group={formulario.moneda}
-							value={moneda.codigo}
-							class="sr-only"
-							on:change={() => {
-								marcarTocado('moneda');
-								validarCampo('moneda', formulario.moneda);
-							}}
-						/>
-						<div class="cursor-pointer border-2 rounded-lg p-3 transition-all duration-200 hover:shadow-md {
-							formulario.moneda === moneda.codigo 
-								? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
-								: 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-						}">
-							<div class="text-center">
-								<div class="font-bold text-lg text-gray-900 dark:text-white">
-									{moneda.simbolo}
-								</div>
-								<div class="text-sm font-medium text-gray-700 dark:text-gray-300">
-									{moneda.codigo}
-								</div>
-								<div class="text-xs text-gray-500 dark:text-gray-400 truncate">
-									{moneda.nombre.split('(')[0].trim()}
-								</div>
-							</div>
-						</div>
-					</label>
-				{/each}
-			</div>
-			{#if errores.moneda}
-				<p class="text-sm text-red-600 dark:text-red-400 mt-2 flex items-center space-x-1">
-					<span>{errores.moneda}</span>
-				</p>
-			{/if}
-		</div>
+	<!-- Nombre del negocio -->
+	<div>
+		<Input
+			tipo="text"
+			etiqueta="Nombre del Negocio"
+			bind:valor={formulario.nombre}
+			placeholder="Ej: Mi Consultoría Digital"
+			obligatorio
+			error={errores.nombre}
+			ayuda="Un nombre claro y profesional para tu negocio"
+			on:blur={() => {
+				marcarTocado('nombre');
+				validarCampo('nombre', formulario.nombre);
+			}}
+		/>
 	</div>
 
-	<!-- Acciones -->
-	<div class="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-		<Boton
-			variante="secondary"
+	<!-- Tipo de negocio -->
+	<div>
+		<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+			Tipo de Negocio *
+		</label>
+		<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+			{#each tiposNegocio as tipo}
+				<label class="relative">
+					<input
+						type="radio"
+						bind:group={formulario.tipo_negocio}
+						value={tipo.valor}
+						class="sr-only"
+						on:change={() => {
+							marcarTocado('tipo_negocio');
+							validarCampo('tipo_negocio', formulario.tipo_negocio);
+						}}
+					/>
+					<div class="cursor-pointer border-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md {
+						formulario.tipo_negocio === tipo.valor 
+							? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+							: 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+					}">
+						<div class="text-center">
+							<div class="text-2xl mb-2">{tipo.icono}</div>
+							<div class="font-medium text-gray-900 dark:text-white text-sm">
+								{tipo.nombre}
+							</div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+								{tipo.descripcion}
+							</div>
+						</div>
+					</div>
+				</label>
+			{/each}
+		</div>
+		{#if errores.tipo_negocio}
+			<p class="text-sm text-red-600 dark:text-red-400 mt-2 flex items-center space-x-1">
+				<span>{errores.tipo_negocio}</span>
+			</p>
+		{/if}
+	</div>
+
+	<!-- Descripción -->
+	<div>
+		<Input
+			tipo="textarea"
+			etiqueta="Descripción del Negocio"
+			bind:valor={formulario.descripcion}
+			placeholder="Describe brevemente tu negocio, servicios que ofreces, productos que vendes..."
+			filas={4}
+			error={errores.descripcion}
+			ayuda="Opcional: Información adicional sobre tu negocio"
+			on:blur={() => {
+				marcarTocado('descripcion');
+				validarCampo('descripcion', formulario.descripcion);
+			}}
+		/>
+	</div>
+
+	<!-- Moneda -->
+	<div>
+		<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+			Moneda Principal *
+		</label>
+		<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+			{#each monedas as moneda}
+				<label class="relative">
+					<input
+						type="radio"
+						bind:group={formulario.moneda}
+						value={moneda.codigo}
+						class="sr-only"
+						on:change={() => {
+							marcarTocado('moneda');
+							validarCampo('moneda', formulario.moneda);
+						}}
+					/>
+					<div class="cursor-pointer border-2 rounded-lg p-3 transition-all duration-200 hover:shadow-md {
+						formulario.moneda === moneda.codigo 
+							? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+							: 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+					}">
+						<div class="text-center">
+							<div class="font-bold text-lg text-gray-900 dark:text-white">
+								{moneda.simbolo}
+							</div>
+							<div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+								{moneda.codigo}
+							</div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 truncate">
+								{moneda.nombre.split('(')[0].trim()}
+							</div>
+						</div>
+					</div>
+				</label>
+			{/each}
+		</div>
+		{#if errores.moneda}
+			<p class="text-sm text-red-600 dark:text-red-400 mt-2 flex items-center space-x-1">
+				<span>{errores.moneda}</span>
+			</p>
+		{/if}
+	</div>
+</div>
+
+<!-- Acciones Premium con botones épicos -->
+<div class="sticky bottom-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-t border-gray-200/50 dark:border-gray-700/50 p-6 -mx-6 -mb-6 mt-8">
+	<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end space-y-3 sm:space-y-0 sm:space-x-4">
+		<!-- Botón Cancelar -->
+		<button
+			type="button"
 			on:click={cancelar}
 			disabled={guardando}
+			class="group relative px-8 py-4 bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none focus:outline-none focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-600 active:scale-95 overflow-hidden"
 		>
-			<X class="w-4 h-4 mr-2" />
-			Cancelar
-		</Boton>
-		<Boton
+			<!-- Efecto de fondo en hover -->
+			<div class="absolute inset-0 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+			
+			<!-- Contenido del botón -->
+			<div class="relative flex items-center justify-center space-x-3">
+				<X class="w-5 h-5 transition-transform duration-300 group-hover:rotate-90" />
+				<span class="text-lg sm:text-base font-bold">Cancelar</span>
+			</div>
+			
+			<!-- Ripple effect -->
+			<div class="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-active:opacity-100 transition-opacity duration-150"></div>
+		</button>
+		
+		<!-- Botón Guardar/Crear -->
+		<button
+			type="button"
 			on:click={guardarNegocio}
 			disabled={guardando}
-			class="shadow-lg"
+			class="group relative px-10 py-4 bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 hover:from-blue-600 hover:via-purple-600 hover:to-indigo-700 text-white font-bold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none focus:outline-none focus:ring-4 focus:ring-purple-200 dark:focus:ring-purple-600 active:scale-95 overflow-hidden min-w-[180px] sm:min-w-[200px]"
 		>
-			{#if guardando}
-				<div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-				Guardando...
-			{:else}
-				<Save class="w-4 h-4 mr-2" />
-				{negocio ? 'Actualizar' : 'Crear'} Negocio
-			{/if}
-		</Boton>
+			<!-- Efecto shimmer -->
+			<div class="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-shimmer"></div>
+			
+			<!-- Contenido del botón -->
+			<div class="relative flex items-center justify-center space-x-3">
+				{#if guardando}
+					<!-- Spinner épico -->
+					<div class="relative">
+						<div class="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+						<div class="absolute inset-0 w-6 h-6 border-3 border-transparent border-t-yellow-300 rounded-full animate-spin animation-delay-150"></div>
+					</div>
+					<span class="text-lg sm:text-base font-black animate-pulse">
+						Guardando...
+					</span>
+				{:else}
+					<div class="relative">
+						<Save class="w-6 h-6 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
+						<!-- Efecto de brillo en el ícono -->
+						<div class="absolute inset-0 w-6 h-6 bg-yellow-300/30 rounded-full opacity-0 group-hover:opacity-100 animate-ping"></div>
+					</div>
+					<span class="text-lg sm:text-base font-black">
+						{negocio ? 'Actualizar' : 'Crear'} Negocio
+					</span>
+				{/if}
+			</div>
+			
+			<!-- Efecto de particles -->
+			<div class="absolute inset-0 pointer-events-none">
+				<div class="absolute top-2 left-4 w-1 h-1 bg-yellow-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-300"></div>
+				<div class="absolute top-4 right-6 w-1 h-1 bg-blue-200 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-500"></div>
+				<div class="absolute bottom-3 left-8 w-1 h-1 bg-pink-200 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-700"></div>
+			</div>
+		</button>
 	</div>
+	
+	<!-- Indicador de progreso cuando está guardando -->
+	{#if guardando}
+		<div class="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+			<div class="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 rounded-full animate-loading-bar"></div>
+		</div>
+	{/if}
 </div> 

@@ -203,6 +203,11 @@
 			{/each}
 		</nav>
 
+		<!-- Botón de cambio de tema -->
+		<div class="flex-shrink-0 px-4 pb-4">
+			<BotonTema />
+		</div>
+
 		<!-- Botón cerrar sesión -->
 		<div class="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700">
 			<button
@@ -248,6 +253,11 @@
 					{#if perfilMenuAbierto}
 						<div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
 							<div class="py-1">
+								<!-- Botón de tema en móvil -->
+								<div class="px-4 py-2">
+									<BotonTema />
+								</div>
+								<hr class="border-gray-200 dark:border-gray-700" />
 								<button
 									on:click={manejarCerrarSesionClick}
 									class="w-full flex items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -306,8 +316,15 @@
 						</button>
 					{/each}
 
-					<!-- Cerrar sesión en móvil -->
+					<!-- Botón de tema en móvil -->
 					<div class="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+						<div class="px-3 mb-4">
+							<BotonTema />
+						</div>
+					</div>
+
+					<!-- Cerrar sesión en móvil -->
+					<div class="border-t border-gray-200 dark:border-gray-700 pt-4">
 						<button
 							on:click={manejarCerrarSesionClick}
 							class="w-full flex items-center px-3 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"

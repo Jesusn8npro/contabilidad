@@ -72,8 +72,14 @@
 		tipo_gasto_personal: 'general',
 		es_recurrente: false,
 		frecuencia_recurrencia: '',
+		fecha_proxima_recurrencia: '',
+		comprobante_url: '',
+		numero_factura: '',
 		notas: '',
-		impacta_negocios: false
+		impacta_negocios: false,
+		negocio_relacionado_id: '',
+		aprobado: true,
+		justificacion_requerida: false
 	};
 
 	// Opciones
@@ -88,6 +94,8 @@
 		{ valor: 'tecnologia', etiqueta: 'Tecnología', icono: '💻' },
 		{ valor: 'inversiones', etiqueta: 'Inversiones', icono: '📈' },
 		{ valor: 'seguros', etiqueta: 'Seguros', icono: '🛡️' },
+		{ valor: 'impuestos', etiqueta: 'Impuestos', icono: '📊' },
+		{ valor: 'servicios_publicos', etiqueta: 'Servicios Públicos', icono: '⚡' },
 		{ valor: 'general', etiqueta: 'General', icono: '💼' }
 	];
 
@@ -96,7 +104,10 @@
 		{ valor: 'transferencia', etiqueta: 'Transferencia' },
 		{ valor: 'tarjeta_credito', etiqueta: 'Tarjeta de Crédito' },
 		{ valor: 'tarjeta_debito', etiqueta: 'Tarjeta de Débito' },
-		{ valor: 'digital', etiqueta: 'Billetera Digital' }
+		{ valor: 'cheque', etiqueta: 'Cheque' },
+		{ valor: 'digital', etiqueta: 'Billetera Digital' },
+		{ valor: 'crypto', etiqueta: 'Criptomoneda' },
+		{ valor: 'otro', etiqueta: 'Otro' }
 	];
 
 	// Estadísticas calculadas
@@ -274,8 +285,14 @@
 			tipo_gasto_personal: 'general',
 			es_recurrente: false,
 			frecuencia_recurrencia: '',
+			fecha_proxima_recurrencia: '',
+			comprobante_url: '',
+			numero_factura: '',
 			notas: '',
-			impacta_negocios: false
+			impacta_negocios: false,
+			negocio_relacionado_id: '',
+			aprobado: true,
+			justificacion_requerida: false
 		};
 		mostrarModal = true;
 	};
@@ -293,8 +310,14 @@
 			tipo_gasto_personal: gasto.tipo_gasto_personal,
 			es_recurrente: gasto.es_recurrente,
 			frecuencia_recurrencia: gasto.frecuencia_recurrencia || '',
+			fecha_proxima_recurrencia: gasto.fecha_proxima_recurrencia || '',
+			comprobante_url: gasto.comprobante_url || '',
+			numero_factura: gasto.numero_factura || '',
 			notas: gasto.notas || '',
-			impacta_negocios: gasto.impacta_negocios
+			impacta_negocios: gasto.impacta_negocios,
+			negocio_relacionado_id: gasto.negocio_relacionado_id || '',
+			aprobado: gasto.aprobado,
+			justificacion_requerida: gasto.justificacion_requerida
 		};
 		mostrarModal = true;
 	};
@@ -344,22 +367,46 @@
 				<p class="text-red-100 mt-1 text-sm sm:text-base">Controla y gestiona todos tus gastos personales</p>
 			</div>
 			
-			<div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
-				<Boton 
-					variante="secondary" 
-					clase="border-white/20 text-white hover:bg-white/10 text-sm"
+			<div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+				<!-- Botón Exportar -->
+				<button
+					class="group relative flex items-center justify-center px-6 py-3 overflow-hidden text-sm font-semibold text-white transition-all duration-300 ease-out bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-white/25 transform hover:shadow-2xl hover:shadow-white/20 w-full sm:w-auto"
 				>
-					<Download class="w-4 h-4 mr-2" />
-					Exportar
-				</Boton>
+					<span class="absolute inset-0 w-full h-full bg-gradient-to-r from-white/10 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+					<Download class="relative w-4 h-4 mr-2 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
+					<span class="relative font-bold">Exportar</span>
+					<div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-all duration-300"></div>
+				</button>
 				
-				<Boton 
+				<!-- Botón Nuevo Gasto -->
+				<button
 					on:click={abrirModalCrear}
-					clase="bg-white text-red-600 hover:bg-gray-50 text-sm"
+					class="group relative flex items-center justify-center px-8 py-3 overflow-hidden text-sm font-bold text-red-600 transition-all duration-300 ease-out bg-white rounded-xl shadow-lg hover:shadow-2xl hover:shadow-white/50 focus:outline-none focus:ring-4 focus:ring-white/50 transform hover:scale-110 hover:-translate-y-1 active:translate-y-0 w-full sm:w-auto"
 				>
-					<Plus class="w-4 h-4 mr-2" />
-					Nuevo Gasto
-				</Boton>
+					<!-- Efecto shimmer -->
+					<span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-yellow-200/30 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-shimmer transition-opacity duration-300"></span>
+					
+					<!-- Contenido del botón -->
+					<div class="relative flex items-center">
+						<div class="relative">
+							<Plus class="w-5 h-5 mr-3 transition-all duration-300 group-hover:scale-125 group-hover:rotate-180" />
+							<!-- Efecto de brillo en el ícono -->
+							<div class="absolute inset-0 w-5 h-5 bg-red-300/40 rounded-full opacity-0 group-hover:opacity-100 animate-ping"></div>
+						</div>
+						<span class="font-black text-lg">Nuevo Gasto</span>
+						<div class="w-2 h-2 bg-red-400 rounded-full ml-3 animate-pulse group-hover:animate-bounce"></div>
+					</div>
+					
+					<!-- Partículas mágicas -->
+					<div class="absolute inset-0 pointer-events-none">
+						<div class="absolute top-2 left-4 w-1 h-1 bg-red-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-300"></div>
+						<div class="absolute top-4 right-6 w-1 h-1 bg-pink-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-500"></div>
+						<div class="absolute bottom-3 left-6 w-1 h-1 bg-yellow-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-700"></div>
+					</div>
+					
+					<!-- Efecto de onda -->
+					<div class="absolute inset-0 rounded-xl bg-gradient-to-r from-red-400/20 to-pink-400/20 opacity-0 group-hover:opacity-100 scale-0 group-hover:scale-150 transition-all duration-700"></div>
+				</button>
 			</div>
 		</div>
 	</div>
@@ -455,18 +502,56 @@
 					<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
 				</div>
 			{:else if gastosFiltrados.length === 0}
-				<div class="text-center py-8">
-					<DollarSign class="w-12 h-12 mx-auto text-gray-400 mb-4" />
-					<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+				<div class="text-center py-12">
+					<div class="relative mb-8">
+						<div class="w-24 h-24 bg-gradient-to-br from-red-500 to-pink-600 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl transform hover:scale-110 hover:rotate-12 transition-all duration-500 group">
+							<DollarSign class="w-12 h-12 text-white group-hover:animate-bounce" />
+							
+							<!-- Efecto de brillo -->
+							<div class="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-pink-400/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+						</div>
+						
+						<!-- Anillos decorativos -->
+						<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-red-300/30 rounded-full animate-spin"></div>
+						<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 border border-pink-300/20 rounded-full animate-ping"></div>
+					</div>
+					
+					<h3 class="text-2xl font-black text-gray-900 dark:text-white mb-4">
 						No hay gastos personales
 					</h3>
-					<p class="text-gray-600 dark:text-gray-400 mb-6">
-						Empieza registrando tu primer gasto personal.
+					<p class="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+						Empieza registrando tu primer gasto personal y toma control de tus finanzas.
 					</p>
-					<Boton on:click={abrirModalCrear}>
-						<Plus class="w-4 h-4 mr-2" />
-						Crear Primer Gasto
-					</Boton>
+					
+					<!-- Botón épico para crear primer gasto -->
+					<button
+						on:click={abrirModalCrear}
+						class="group relative px-10 py-4 bg-gradient-to-r from-red-500 via-pink-500 to-red-600 hover:from-red-600 hover:via-pink-600 hover:to-red-700 text-white font-black text-lg rounded-full shadow-2xl hover:shadow-red-500/25 transform hover:scale-110 hover:rotate-2 transition-all duration-500 overflow-hidden mx-auto inline-flex items-center space-x-3"
+					>
+						<!-- Efecto shimmer -->
+						<div class="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-shimmer"></div>
+						
+						<!-- Contenido del botón -->
+						<div class="relative flex items-center space-x-3">
+							<div class="relative">
+								<Plus class="w-6 h-6 transition-all duration-300 group-hover:scale-125 group-hover:rotate-180" />
+								<!-- Efecto de brillo en el ícono -->
+								<div class="absolute inset-0 w-6 h-6 bg-yellow-300/40 rounded-full opacity-0 group-hover:opacity-100 animate-ping"></div>
+							</div>
+							<span class="text-lg font-black">Crear Primer Gasto</span>
+							<div class="w-2 h-2 bg-yellow-300 rounded-full animate-pulse group-hover:animate-bounce"></div>
+						</div>
+						
+						<!-- Partículas mágicas -->
+						<div class="absolute inset-0 pointer-events-none">
+							<div class="absolute top-3 left-6 w-1 h-1 bg-yellow-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-300"></div>
+							<div class="absolute top-6 right-8 w-1 h-1 bg-pink-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-500"></div>
+							<div class="absolute bottom-4 left-10 w-1 h-1 bg-white rounded-full opacity-0 group-hover:opacity-100 animate-ping animation-delay-700"></div>
+						</div>
+						
+						<!-- Efecto de onda -->
+						<div class="absolute inset-0 rounded-full bg-gradient-to-r from-red-400/20 to-pink-400/20 opacity-0 group-hover:opacity-100 scale-0 group-hover:scale-150 transition-all duration-700"></div>
+					</button>
 				</div>
 			{:else}
 				<div class="space-y-3">

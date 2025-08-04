@@ -1,5 +1,6 @@
 <script lang="ts">
     import { page } from '$app/stores';
+    import { modalAbierto } from '$lib/stores/ui';
     import { 
         Home, 
         FolderOpen, 
@@ -51,8 +52,8 @@
     };
 </script>
 
-<!-- Navegación móvil - Solo visible en pantallas pequeñas -->
-<nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:hidden z-50">
+<!-- Navegación móvil - Solo visible en pantallas pequeñas y cuando no hay modales abiertos -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:hidden z-50 transition-transform duration-300 ease-in-out {$modalAbierto ? 'translate-y-full' : 'translate-y-0'}">
     <div class="flex items-center justify-around px-2 py-1">
         {#each elementosMenu as item}
             <a
