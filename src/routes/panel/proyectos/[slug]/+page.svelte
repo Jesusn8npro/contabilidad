@@ -287,34 +287,40 @@
 						</div>
 					</div>
 					
-					<div class="flex items-center gap-2 flex-shrink-0">
-						<Boton 
-							variante="secondary" 
-							tamaño="sm"
+					<div class="flex items-center gap-3 flex-shrink-0">
+						<!-- Botón Editar Proyecto - Desktop -->
+						<button 
 							on:click={handleEditarProyecto}
-							class="hidden sm:flex"
+							class="hidden sm:flex items-center px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-600 rounded-xl hover:bg-white dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-lg transition-all duration-200 transform hover:scale-105 group"
 						>
-							<Settings class="w-4 h-4 mr-1" />
+							<Settings class="w-4 h-4 mr-2 transition-transform duration-200 group-hover:rotate-90" />
 							Editar
-						</Boton>
-						<Boton 
-							variante="primary"
-							tamaño="sm"
+						</button>
+
+						<!-- Botón Nueva Tarea - ÉPICO -->
+						<button 
 							on:click={() => handleNuevaTarea()}
+							class="group relative flex items-center px-6 py-2.5 overflow-hidden text-sm font-bold text-white transition-all duration-300 ease-out bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 rounded-xl hover:shadow-2xl hover:shadow-blue-500/25 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500/50"
 						>
-							<Plus class="w-4 h-4" />
-							<span class="hidden sm:inline ml-1">Nueva Tarea</span>
-						</Boton>
+							<!-- Efecto de brillo animado -->
+							<span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-300"></span>
+							
+							<!-- Contenido del botón -->
+							<Plus class="relative w-4 h-4 mr-2 transition-transform duration-300 group-hover:rotate-180" />
+							<span class="relative hidden sm:inline">Nueva Tarea</span>
+							<span class="relative sm:hidden">Nueva</span>
+							
+							<!-- Partículas flotantes en hover -->
+							<div class="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/20 to-purple-400/20 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-all duration-300"></div>
+						</button>
 						
-						<!-- Botón de editar para móvil -->
-						<Boton 
-							variante="ghost" 
-							tamaño="sm"
+						<!-- Botón Editar - Móvil -->
+						<button 
 							on:click={handleEditarProyecto}
-							class="sm:hidden"
+							class="sm:hidden group flex items-center justify-center w-10 h-10 text-gray-600 dark:text-gray-400 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-600 rounded-xl hover:bg-white dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-lg transition-all duration-200 transform hover:scale-105"
 						>
-							<Settings class="w-4 h-4" />
-						</Boton>
+							<Settings class="w-4 h-4 transition-transform duration-200 group-hover:rotate-90" />
+						</button>
 					</div>
 				</div>
 

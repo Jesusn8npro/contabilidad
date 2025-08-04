@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import { writable } from 'svelte/store';
 	import { supabase } from '$lib/supabase/cliente';
+	import type { GastoPersonal } from '$lib/tipos/app';
 	import { 
 		Plus, 
 		Search, 
@@ -174,23 +175,49 @@
 			const { data: { user } } = await supabase.auth.getUser();
 			if (!user) {
 				console.error('No hay usuario autenticado');
+				alert('Por favor inicia sesión');
 				return;
 			}
 
 			// Validar campos requeridos
 			if (!formularioGasto.monto || !formularioGasto.descripcion) {
-				alert('Por favor completa los campos requeridos');
+				alert('Por favor completa los campos requeridos: Monto y Descripción');
 				return;
 			}
 
-			const gastoData = {
-				...formularioGasto,
+			// Limpiar y preparar datos, convirtiendo strings vacíos en null para UUIDs
+			const gastoData: any = {
 				monto: parseFloat(formularioGasto.monto),
+				descripcion: formularioGasto.descripcion.trim(),
+				fecha_gasto: formularioGasto.fecha_gasto,
+				categoria_id: formularioGasto.categoria_id || null, // UUID o null
+				metodo_pago: formularioGasto.metodo_pago,
+				ubicacion: formularioGasto.ubicacion?.trim() || null,
+				proveedor: formularioGasto.proveedor?.trim() || null,
+				tipo_gasto_personal: formularioGasto.tipo_gasto_personal,
+				es_recurrente: formularioGasto.es_recurrente,
+				frecuencia_recurrencia: formularioGasto.es_recurrente ? formularioGasto.frecuencia_recurrencia : null,
+				fecha_proxima_recurrencia: formularioGasto.es_recurrente && formularioGasto.fecha_proxima_recurrencia 
+					? formularioGasto.fecha_proxima_recurrencia 
+					: null,
+				comprobante_url: formularioGasto.comprobante_url?.trim() || null,
+				numero_factura: formularioGasto.numero_factura?.trim() || null,
+				notas: formularioGasto.notas?.trim() || null,
+				impacta_negocios: formularioGasto.impacta_negocios,
+				negocio_relacionado_id: formularioGasto.impacta_negocios && formularioGasto.negocio_relacionado_id 
+					? formularioGasto.negocio_relacionado_id 
+					: null, // UUID o null
 				usuario_id: user.id,
-				fecha_creacion: editandoGasto ? undefined : new Date().toISOString(),
 				aprobado: true,
 				justificacion_requerida: false
 			};
+
+			// Solo agregar fecha_creacion para nuevos gastos
+			if (!editandoGasto) {
+				gastoData.fecha_creacion = new Date().toISOString();
+			}
+
+			console.log('🎯 Datos a guardar:', gastoData);
 
 			let result;
 			if (editandoGasto) {
@@ -225,25 +252,25 @@
 			}
 
 			if (result.error) {
-				console.error('Error guardando gasto:', result.error);
-				alert('Error al guardar el gasto personal');
+				console.error('❌ Error guardando gasto:', result.error);
+				alert(`Error al guardar el gasto: ${result.error.message || 'Error desconocido'}`);
 				return;
 			}
 
-			// Actualizar lista local
-			if (editandoGasto) {
-				gastosPersonales.update(lista => 
-					lista.map(g => g.id === editandoGasto!.id ? result.data : g)
-				);
-			} else {
-				gastosPersonales.update(lista => [result.data, ...lista]);
-			}
-
+			console.log('✅ Gasto guardado exitosamente:', result.data);
+			
+			// Actualizar la lista
+			await cargarGastosPersonales();
+			
+			// Cerrar modal y resetear
 			cerrarModal();
-			console.log('✅ Gasto guardado exitosamente');
+			
+			alert(editandoGasto ? 'Gasto actualizado exitosamente' : 'Gasto creado exitosamente');
+
 		} catch (error) {
-			console.error('Error en guardarGasto:', error);
-			alert('Error al guardar el gasto personal');
+			console.error('💥 Error general:', error);
+			const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+			alert(`Error inesperado: ${errorMessage}`);
 		} finally {
 			guardandoGasto = false;
 		}
@@ -326,6 +353,28 @@
 		mostrarModal = false;
 		editandoGasto = null;
 		guardandoGasto = false;
+		
+		// Resetear formulario
+		formularioGasto = {
+			monto: '',
+			descripcion: '',
+			fecha_gasto: new Date().toISOString().split('T')[0],
+			categoria_id: '',
+			metodo_pago: 'efectivo',
+			ubicacion: '',
+			proveedor: '',
+			tipo_gasto_personal: 'general',
+			es_recurrente: false,
+			frecuencia_recurrencia: '',
+			fecha_proxima_recurrencia: '',
+			comprobante_url: '',
+			numero_factura: '',
+			notas: '',
+			impacta_negocios: false,
+			negocio_relacionado_id: '',
+			aprobado: true,
+			justificacion_requerida: false
+		};
 	};
 
 	const formatearMoneda = (monto: number) => {

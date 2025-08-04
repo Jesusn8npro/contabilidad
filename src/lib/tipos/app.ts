@@ -219,13 +219,37 @@ export interface EstadisticasDashboard {
 
 export interface DatosGrafico {
 	labels: string[];
-	datasets: {
+	datasets: Array<{
 		label: string;
 		data: number[];
-		backgroundColor?: string[];
+		backgroundColor?: string | string[];
 		borderColor?: string;
-		borderWidth?: number;
-	}[];
+	}>;
+}
+
+// Gastos Personales
+export interface GastoPersonal {
+	id: string;
+	usuario_id: string;
+	monto: number;
+	descripcion: string;
+	fecha_gasto: string;
+	categoria_id?: string | null;
+	metodo_pago: string;
+	ubicacion?: string | null;
+	proveedor?: string | null;
+	tipo_gasto_personal: string;
+	es_recurrente: boolean;
+	frecuencia_recurrencia?: string | null;
+	fecha_proxima_recurrencia?: string | null;
+	comprobante_url?: string | null;
+	numero_factura?: string | null;
+	notas?: string | null;
+	impacta_negocios: boolean;
+	negocio_relacionado_id?: string | null;
+	aprobado: boolean;
+	justificacion_requerida: boolean;
+	fecha_creacion: string;
 }
 
 // Notificaciones
