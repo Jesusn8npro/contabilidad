@@ -782,4 +782,5 @@
 				on:cancelar={() => modalMovimiento = false}
 			/>
 		</Modal>
+	</div>
 {/if} 

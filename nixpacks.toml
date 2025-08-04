@@ -1,18 +1,19 @@
 [variables]
 NODE_VERSION = "18"
-NPM_VERSION = "latest"
+NPM_CONFIG_UPDATE_NOTIFIER = "false"
+NPM_CONFIG_FUND = "false"
 
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "npm-9_x"]
+nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
 cmds = [
-    "npm ci --ignore-scripts",
+    "npm ci --no-audit --no-fund",
     "npm run build"
 ]
 
 [phases.build]
-cmds = ["echo 'Build completed'"]
+cmds = ["node verify-build.cjs"]
 
 [start]
 cmd = "node build" 
