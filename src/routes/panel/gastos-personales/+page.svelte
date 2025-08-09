@@ -1,29 +1,35 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { finanzasPersonales, cargarMovimientosPersonales, movimientosPersonales } from '$lib/stores/finanzas-personales';
+	import { finanzasPersonales, finanzasPersonalesStore, cargandoFinanzas } from '$lib/stores/finanzas-personales';
+	import { user } from '$lib/stores/auth';
 	import { Plus, TrendingDown, DollarSign, Calendar } from 'lucide-svelte';
 	import TarjetaEstadistica from '$lib/componentes/ui/TarjetaEstadistica.svelte';
 	import Boton from '$lib/componentes/ui/Boton.svelte';
 
 	// Cargar datos al montar el componente
 	onMount(async () => {
-		await cargarMovimientosPersonales();
+		if ($user) {
+			await finanzasPersonalesStore.cargar($user);
+		}
 	});
 
 	// Métricas calculadas
-	$: totalGastos = $movimientosPersonales
-		.filter(m => m.tipo_movimiento === 'gasto')
+	$: totalGastos = $finanzasPersonales
+		.filter(m => m.tipo === 'gasto')
 		.reduce((sum, m) => sum + m.monto, 0);
 
-	$: gastosEsteMes = $movimientosPersonales
+	$: gastosEsteMes = $finanzasPersonales
 		.filter(m => {
-			const fecha = new Date(m.fecha_creacion);
-			const hoy = new Date();
-			return m.tipo_movimiento === 'gasto' && 
-				   fecha.getMonth() === hoy.getMonth() && 
-				   fecha.getFullYear() === hoy.getFullYear();
+			if (!m.fecha_gasto) return false;
+			const fecha = new Date(m.fecha_gasto);
+			const ahora = new Date();
+			return fecha.getMonth() === ahora.getMonth() && 
+				   fecha.getFullYear() === ahora.getFullYear() &&
+				   m.tipo === 'gasto';
 		})
 		.reduce((sum, m) => sum + m.monto, 0);
+
+	$: gastoPromedioDiario = gastosEsteMes / new Date().getDate();
 
 	const irAFinanzas = () => {
 		window.location.href = '/panel/finanzas';
@@ -51,19 +57,21 @@
 			titulo="Total Gastos"
 			valor="${totalGastos.toLocaleString()}"
 			icono={TrendingDown}
-			color="red"
+			color="rojo"
 		/>
+		
 		<TarjetaEstadistica
-			titulo="Gastos Este Mes"
+			titulo="Este Mes"
 			valor="${gastosEsteMes.toLocaleString()}"
 			icono={DollarSign}
-			color="purple"
+			color="morado"
 		/>
+		
 		<TarjetaEstadistica
 			titulo="Promedio Diario"
-			valor="${Math.round(gastosEsteMes / 30).toLocaleString()}"
+			valor="${Math.round(gastoPromedioDiario).toLocaleString()}"
 			icono={Calendar}
-			color="pink"
+			color="naranja"
 		/>
 	</div>
 
@@ -94,21 +102,21 @@
 	</div>
 
 	<!-- Lista de gastos recientes (si existen) -->
-	{#if $movimientosPersonales.length > 0}
+	{#if $finanzasPersonales.length > 0}
 		<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
 			<h2 class="text-xl font-semibold mb-4">Gastos Recientes</h2>
 			<div class="space-y-3">
-				{#each $movimientosPersonales.filter(m => m.tipo_movimiento === 'gasto').slice(0, 5) as gasto}
+				{#each $finanzasPersonales.filter(m => m.tipo === 'gasto').slice(0, 5) as gasto}
 					<div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
 						<div class="flex-1">
-							<p class="font-medium">{gasto.descripcion}</p>
-							<p class="text-sm text-gray-500">
-								{new Date(gasto.fecha_creacion).toLocaleDateString()}
+							<h4 class="font-medium text-gray-900 dark:text-white">{gasto.descripcion}</h4>
+							<p class="text-sm text-gray-600 dark:text-gray-400">
+								{gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-ES') : 'Fecha no disponible'}
 							</p>
 						</div>
-						<span class="text-red-600 font-bold">
-							-${gasto.monto.toLocaleString()}
-						</span>
+						<div class="text-right">
+							<p class="text-lg font-semibold text-red-600">-${gasto.monto.toLocaleString()}</p>
+						</div>
 					</div>
 				{/each}
 			</div>
