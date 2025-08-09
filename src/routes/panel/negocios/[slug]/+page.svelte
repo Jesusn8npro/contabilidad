@@ -42,12 +42,14 @@
 	import {
 		productos,
 		cargarProductos,
-		cargandoProductos
+		cargandoProductos,
+		crearProducto
 	} from '$lib/stores/inventario';
 	import {
 		clientes,
 		cargarClientes,
-		cargandoClientes
+		cargandoClientes,
+		crearCliente
 	} from '$lib/stores/clientes';
 	import {
 		tareas,
@@ -72,6 +74,7 @@
 	import TarjetaMovimiento from '$lib/componentes/movimientos/TarjetaMovimiento.svelte';
 	import KanbanTableroNegocios from '$lib/componentes/tareas/KanbanTableroNegocios.svelte';
 	import BotonWhatsApp from '$lib/componentes/ui/BotonWhatsApp.svelte';
+	import CalendarioInteractivo from '$lib/componentes/calendario/CalendarioInteractivo.svelte';
 
 	// Params
 	let negocioSlug: string = '';
@@ -80,7 +83,7 @@
 	// Estado local
 	let modalMovimiento = false;
 	let tipoMovimiento: 'ingreso' | 'gasto' = 'ingreso';
-	let pestanaActiva: 'resumen' | 'productos' | 'clientes' | 'movimientos' | 'tareas' | 'marketing' | 'configuracion' = 'resumen';
+	let pestanaActiva: 'resumen' | 'productos' | 'clientes' | 'movimientos' | 'tareas' | 'marketing' | 'calendario' | 'configuracion' = 'resumen';
 	let guardandoConfiguracion = false;
 	let formularioInicializado = false; // 🔧 NUEVA VARIABLE PARA CONTROLAR INICIALIZACIÓN
 
@@ -92,6 +95,33 @@
 		descripcion: '',
 		estado: 'por-hacer' as EstadoTarea,
 		prioridad: 'media' as PrioridadTarea
+	};
+
+	// ESTADO PARA CLIENTES - NUEVO
+	let modalCliente = false;
+	let formCliente = {
+		nombre: '',
+		email: '',
+		telefono: '',
+		empresa: '',
+		direccion: '',
+		categoria_cliente: 'nuevo' as 'premium' | 'gold' | 'silver' | 'regular' | 'nuevo',
+		limite_credito: 0,
+		puntuacion_credito: 5
+	};
+
+	// ESTADO PARA PRODUCTOS - NUEVO
+	let modalProducto = false;
+	let formProducto = {
+		nombre: '',
+		descripcion: '',
+		precio: 0,
+		costo: 0,
+		stock_actual: 0,
+		stock_minimo: 5,
+		categoria: '',
+		codigo_barras: '',
+		activo: true
 	};
 
 	// Formulario de configuración - Variables reactivas
@@ -303,7 +333,9 @@
 				// 🔥 SI CAMBIÓ EL NOMBRE, REDIRIGIR A LA NUEVA URL
 				if (nombreCambio && negocioActualizado.slug && negocioActualizado.slug !== negocioSlug) {
 					console.log('🔄 Nombre cambió, redirigiendo a nueva URL:', `/panel/negocios/${negocioActualizado.slug}`);
-					await goto(`/panel/negocios/${negocioActualizado.slug}`, { replaceState: true });
+					// Usar window.location para evitar problemas de navegación
+					window.location.href = `/panel/negocios/${negocioActualizado.slug}`;
+					return;
 				}
 			}
 
@@ -441,6 +473,86 @@
 		} catch (error) {
 			console.error('Error al mover tarea:', error);
 			alert('Error al mover la tarea');
+		}
+	};
+
+	// FUNCIONES PARA CLIENTES
+	const abrirModalCliente = () => {
+		formCliente = {
+			nombre: '',
+			email: '',
+			telefono: '',
+			empresa: '',
+			direccion: '',
+			categoria_cliente: 'nuevo',
+			limite_credito: 0,
+			puntuacion_credito: 5
+		};
+		modalCliente = true;
+	};
+
+	const handleCrearCliente = async () => {
+		if (!$negocioActual || !formCliente.nombre.trim()) {
+			alert('El nombre del cliente es obligatorio');
+			return;
+		}
+
+		try {
+			const datosCliente = {
+				...formCliente,
+				negocio_id: $negocioActual.id,
+				estado: 'activo' as const,
+				total_facturado: 0,
+				saldo_pendiente: 0
+			};
+
+			await crearCliente(datosCliente);
+			await cargarClientes($negocioActual.id);
+			modalCliente = false;
+			
+			console.log('✅ Cliente creado exitosamente');
+		} catch (error) {
+			console.error('❌ Error al crear cliente:', error);
+			alert('Error al crear el cliente');
+		}
+	};
+
+	// FUNCIONES PARA PRODUCTOS  
+	const abrirModalProducto = () => {
+		formProducto = {
+			nombre: '',
+			descripcion: '',
+			precio: 0,
+			costo: 0,
+			stock_actual: 0,
+			stock_minimo: 5,
+			categoria: '',
+			codigo_barras: '',
+			activo: true
+		};
+		modalProducto = true;
+	};
+
+	const handleCrearProducto = async () => {
+		if (!$negocioActual || !formProducto.nombre.trim()) {
+			alert('El nombre del producto es obligatorio');
+			return;
+		}
+
+		try {
+			const datosProducto = {
+				...formProducto,
+				negocio_id: $negocioActual.id
+			};
+
+			await crearProducto(datosProducto);
+			await cargarProductos($negocioActual.id);
+			modalProducto = false;
+			
+			console.log('✅ Producto creado exitosamente');
+		} catch (error) {
+			console.error('❌ Error al crear producto:', error);
+			alert('Error al crear el producto');
 		}
 	};
 </script>
@@ -626,6 +738,16 @@
 						({$cargandoCampañas ? '...' : campañasNegocio.length})
 					</button>
 					<button
+						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'calendario' 
+							? 'border-pink-500 text-pink-600 dark:text-pink-400' 
+							: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
+						on:click={() => pestanaActiva = 'calendario'}
+					>
+						<Calendar class="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+						<span class="hidden sm:inline">📅 Calendario</span>
+						<span class="sm:hidden">📅 Calendario</span>
+					</button>
+					<button
 						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'configuracion' 
 							? 'border-blue-500 text-blue-600 dark:text-blue-400' 
 							: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
@@ -643,114 +765,614 @@
 		<div class="flex-1 overflow-auto">
 			<div class="p-4 sm:p-6 max-w-full overflow-hidden">
 				{#if pestanaActiva === 'resumen'}
-					<!-- Métricas principales -->
-					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 mb-6 sm:mb-8">
-						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center">
-								<div class="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
-									<TrendingUp class="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
+					<!-- Header del Dashboard -->
+					<div class="mb-8">
+						<div class="flex items-center justify-between mb-6">
+							<div>
+								<h2 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+									🏢 Dashboard de {$negocioActual?.nombre}
+								</h2>
+								<p class="text-gray-600 dark:text-gray-400 mt-1">
+									Centro de comando completo de tu negocio
+								</p>
+							</div>
+							<div class="flex items-center space-x-3">
+								<div class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
+									Activo
 								</div>
-								<div class="ml-3 sm:ml-4 min-w-0 flex-1">
-									<p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">Ingresos Totales</p>
-									<p class="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400 truncate">
-										{formatearMoneda(estadisticasNegocio.totalIngresos, $negocioActual.moneda)}
-									</p>
+								<div class="text-sm text-gray-500 dark:text-gray-400">
+									Actualizado ahora
 								</div>
 							</div>
 						</div>
 
-						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center">
-								<div class="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg flex-shrink-0">
-									<TrendingDown class="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-400" />
+						<!-- Acciones Rápidas ÉPICAS -->
+						<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-8">
+							<!-- Nuevo Producto -->
+							<button 
+								class="group relative flex flex-col items-center p-4 bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl"
+								on:click={() => abrirModalProducto()}
+							>
+								<div class="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+								<Package class="w-6 h-6 mb-2 relative z-10" />
+								<span class="text-xs font-medium relative z-10">Nuevo Producto</span>
+							</button>
+
+							<!-- Nuevo Cliente -->
+							<button 
+								class="group relative flex flex-col items-center p-4 bg-gradient-to-br from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl"
+								on:click={() => abrirModalCliente()}
+							>
+								<div class="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+								<UserCheck class="w-6 h-6 mb-2 relative z-10" />
+								<span class="text-xs font-medium relative z-10">Nuevo Cliente</span>
+							</button>
+
+							<!-- Nueva Venta -->
+							<button 
+								class="group relative flex flex-col items-center p-4 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl"
+								on:click={() => {
+									modalMovimiento = true;
+									tipoMovimiento = 'ingreso';
+								}}
+							>
+								<div class="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+								<TrendingUp class="w-6 h-6 mb-2 relative z-10" />
+								<span class="text-xs font-medium relative z-10">Nueva Venta</span>
+							</button>
+
+							<!-- Nuevo Gasto -->
+							<button 
+								class="group relative flex flex-col items-center p-4 bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl"
+								on:click={() => {
+									modalMovimiento = true;
+									tipoMovimiento = 'gasto';
+								}}
+							>
+								<div class="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+								<TrendingDown class="w-6 h-6 mb-2 relative z-10" />
+								<span class="text-xs font-medium relative z-10">Nuevo Gasto</span>
+							</button>
+
+							<!-- Nueva Tarea -->
+							<button 
+								class="group relative flex flex-col items-center p-4 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl"
+								on:click={() => abrirModalTarea()}
+							>
+								<div class="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+								<Calendar class="w-6 h-6 mb-2 relative z-10" />
+								<span class="text-xs font-medium relative z-10">Nueva Tarea</span>
+							</button>
+
+							<!-- Ver Calendario -->
+							<button 
+								class="group relative flex flex-col items-center p-4 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl"
+								on:click={() => pestanaActiva = 'calendario'}
+							>
+								<div class="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+								<Target class="w-6 h-6 mb-2 relative z-10" />
+								<span class="text-xs font-medium relative z-10">Ver Calendario</span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Métricas principales MEJORADAS -->
+					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 mb-8">
+						<!-- Ingresos -->
+						<div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-800 hover:shadow-lg transition-all duration-300 cursor-pointer"
+							on:click={() => pestanaActiva = 'movimientos'}
+						>
+							<div class="flex items-center justify-between mb-3">
+								<div class="p-3 bg-green-500 rounded-lg">
+									<TrendingUp class="w-6 h-6 text-white" />
 								</div>
-								<div class="ml-3 sm:ml-4 min-w-0 flex-1">
-									<p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">Gastos Totales</p>
-									<p class="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400 truncate">
-										{formatearMoneda(estadisticasNegocio.totalGastos, $negocioActual.moneda)}
-									</p>
+								<div class="text-green-600 dark:text-green-400">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+									</svg>
 								</div>
+							</div>
+							<div>
+								<p class="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Ingresos Totales</p>
+								<p class="text-2xl font-bold text-green-700 dark:text-green-300">
+									{formatearMoneda(estadisticasNegocio.totalIngresos, $negocioActual.moneda)}
+								</p>
+								<p class="text-xs text-green-600 dark:text-green-400 mt-1">
+									+12% este mes
+								</p>
 							</div>
 						</div>
 
-						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center">
-								<div class="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
-									<DollarSign class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+						<!-- Gastos -->
+						<div class="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl p-6 border border-red-200 dark:border-red-800 hover:shadow-lg transition-all duration-300 cursor-pointer"
+							on:click={() => pestanaActiva = 'movimientos'}
+						>
+							<div class="flex items-center justify-between mb-3">
+								<div class="p-3 bg-red-500 rounded-lg">
+									<TrendingDown class="w-6 h-6 text-white" />
 								</div>
-								<div class="ml-3 sm:ml-4 min-w-0 flex-1">
-									<p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">Balance</p>
-									<p class="text-lg sm:text-2xl font-bold {estadisticasNegocio.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} truncate">
-										{formatearMoneda(estadisticasNegocio.balance, $negocioActual.moneda)}
-									</p>
+								<div class="text-red-600 dark:text-red-400">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+									</svg>
 								</div>
+							</div>
+							<div>
+								<p class="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Gastos Totales</p>
+								<p class="text-2xl font-bold text-red-700 dark:text-red-300">
+									{formatearMoneda(estadisticasNegocio.totalGastos, $negocioActual.moneda)}
+								</p>
+								<p class="text-xs text-red-600 dark:text-red-400 mt-1">
+									-5% este mes
+								</p>
 							</div>
 						</div>
 
-						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center">
-								<div class="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex-shrink-0">
-									<FileText class="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
+						<!-- Balance -->
+						<div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800 hover:shadow-lg transition-all duration-300 cursor-pointer"
+							on:click={() => pestanaActiva = 'movimientos'}
+						>
+							<div class="flex items-center justify-between mb-3">
+								<div class="p-3 {estadisticasNegocio.balance >= 0 ? 'bg-blue-500' : 'bg-red-500'} rounded-lg">
+									<DollarSign class="w-6 h-6 text-white" />
 								</div>
-								<div class="ml-3 sm:ml-4 min-w-0 flex-1">
-									<p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">Movimientos</p>
-									<p class="text-lg sm:text-2xl font-bold text-purple-600 dark:text-purple-400">
-										{estadisticasNegocio.totalMovimientos}
-									</p>
+								<div class="{estadisticasNegocio.balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+									</svg>
 								</div>
+							</div>
+							<div>
+								<p class="text-sm font-medium {estadisticasNegocio.balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'} mb-1">Balance Actual</p>
+								<p class="text-2xl font-bold {estadisticasNegocio.balance >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300'}">
+									{formatearMoneda(estadisticasNegocio.balance, $negocioActual.moneda)}
+								</p>
+								<p class="text-xs {estadisticasNegocio.balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'} mt-1">
+									{estadisticasNegocio.balance >= 0 ? 'Positivo' : 'Negativo'}
+								</p>
 							</div>
 						</div>
 
-						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center">
-								<div class="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex-shrink-0">
-									<Package class="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
+						<!-- Productos -->
+						<div class="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-6 border border-orange-200 dark:border-orange-800 hover:shadow-lg transition-all duration-300 cursor-pointer"
+							on:click={() => pestanaActiva = 'productos'}
+						>
+							<div class="flex items-center justify-between mb-3">
+								<div class="p-3 bg-orange-500 rounded-lg">
+									<Package class="w-6 h-6 text-white" />
 								</div>
-								<div class="ml-3 sm:ml-4 min-w-0 flex-1">
-									<p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">Productos</p>
-									<p class="text-lg sm:text-2xl font-bold text-orange-600 dark:text-orange-400">
-										{estadisticasNegocio.totalProductos}
-									</p>
+								<div class="text-orange-600 dark:text-orange-400">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+									</svg>
 								</div>
+							</div>
+							<div>
+								<p class="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">Productos</p>
+								<p class="text-2xl font-bold text-orange-700 dark:text-orange-300">
+									{estadisticasNegocio.totalProductos}
+								</p>
+								<p class="text-xs text-orange-600 dark:text-orange-400 mt-1">
+									Inventario activo
+								</p>
 							</div>
 						</div>
 
-						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
-							<div class="flex items-center">
-								<div class="p-2 bg-pink-100 dark:bg-pink-900/20 rounded-lg flex-shrink-0">
-									<UserCheck class="w-5 h-5 sm:w-6 sm:h-6 text-pink-600 dark:text-pink-400" />
+						<!-- Clientes -->
+						<div class="bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-900/20 dark:to-pink-800/20 rounded-xl p-6 border border-pink-200 dark:border-pink-800 hover:shadow-lg transition-all duration-300 cursor-pointer"
+							on:click={() => pestanaActiva = 'clientes'}
+						>
+							<div class="flex items-center justify-between mb-3">
+								<div class="p-3 bg-pink-500 rounded-lg">
+									<UserCheck class="w-6 h-6 text-white" />
 								</div>
-								<div class="ml-3 sm:ml-4 min-w-0 flex-1">
-									<p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">Clientes</p>
-									<p class="text-lg sm:text-2xl font-bold text-pink-600 dark:text-pink-400">
-										{estadisticasNegocio.totalClientes}
-									</p>
+								<div class="text-pink-600 dark:text-pink-400">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+									</svg>
+								</div>
+							</div>
+							<div>
+								<p class="text-sm font-medium text-pink-600 dark:text-pink-400 mb-1">Clientes</p>
+								<p class="text-2xl font-bold text-pink-700 dark:text-pink-300">
+									{estadisticasNegocio.totalClientes}
+								</p>
+								<p class="text-xs text-pink-600 dark:text-pink-400 mt-1">
+									Base registrada
+								</p>
+							</div>
+						</div>
+
+						<!-- Tareas -->
+						<div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800 hover:shadow-lg transition-all duration-300 cursor-pointer"
+							on:click={() => pestanaActiva = 'tareas'}
+						>
+							<div class="flex items-center justify-between mb-3">
+								<div class="p-3 bg-purple-500 rounded-lg">
+									<Calendar class="w-6 h-6 text-white" />
+								</div>
+								<div class="text-purple-600 dark:text-purple-400">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+									</svg>
+								</div>
+							</div>
+							<div>
+								<p class="text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">Tareas</p>
+								<p class="text-2xl font-bold text-purple-700 dark:text-purple-300">
+									{tareasNegocio.length}
+								</p>
+								<p class="text-xs text-purple-600 dark:text-purple-400 mt-1">
+									{tareasNegocio.filter(t => t.estado === 'por-hacer').length} pendientes
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<!-- Actividad Reciente y Resumen -->
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+						<!-- Actividad Reciente -->
+						<div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+							<div class="flex items-center justify-between mb-6">
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+									📈 Actividad Reciente
+								</h3>
+								<button 
+									class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+									on:click={() => pestanaActiva = 'movimientos'}
+								>
+									Ver todo
+								</button>
+							</div>
+							
+							<div class="space-y-4">
+								{#each movimientosNegocio.slice(0, 5) as movimiento}
+									<div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+										<div class="flex items-center space-x-3">
+											<div class="p-2 {movimiento.tipo_movimiento === 'ingreso' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'} rounded-lg">
+												{#if movimiento.tipo_movimiento === 'ingreso'}
+													<TrendingUp class="w-4 h-4 text-green-600 dark:text-green-400" />
+												{:else}
+													<TrendingDown class="w-4 h-4 text-red-600 dark:text-red-400" />
+												{/if}
+											</div>
+											<div>
+												<p class="font-medium text-gray-900 dark:text-white text-sm">
+													{movimiento.descripcion}
+												</p>
+												<p class="text-xs text-gray-500 dark:text-gray-400">
+													{new Date(movimiento.fecha_creacion).toLocaleDateString('es-ES')}
+												</p>
+											</div>
+										</div>
+										<div class="text-right">
+											<p class="font-semibold {movimiento.tipo_movimiento === 'ingreso' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
+												{movimiento.tipo_movimiento === 'ingreso' ? '+' : '-'}{formatearMoneda(movimiento.monto, $negocioActual.moneda)}
+											</p>
+										</div>
+									</div>
+								{:else}
+									<div class="text-center py-8">
+										<FileText class="w-12 h-12 text-gray-400 mx-auto mb-3" />
+										<p class="text-gray-500 dark:text-gray-400">No hay movimientos recientes</p>
+										<button 
+											class="mt-3 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+											on:click={() => {
+												modalMovimiento = true;
+												tipoMovimiento = 'ingreso';
+											}}
+										>
+											Registrar Primera Venta
+										</button>
+									</div>
+								{/each}
+							</div>
+						</div>
+
+						<!-- Información del Negocio -->
+						<div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+								🏢 Información del Negocio
+							</h3>
+							
+							<div class="space-y-4">
+								<div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+									<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Tipo de Negocio</span>
+									<span class="text-sm font-semibold text-gray-900 dark:text-white capitalize">
+										{$negocioActual.tipo_negocio.replace('_', ' ')}
+									</span>
+								</div>
+								
+								<div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+									<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Moneda</span>
+									<span class="text-sm font-semibold text-gray-900 dark:text-white">
+										{$negocioActual.moneda.toUpperCase()}
+									</span>
+								</div>
+								
+								<div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+									<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Fecha de Creación</span>
+									<span class="text-sm font-semibold text-gray-900 dark:text-white">
+										{new Date($negocioActual.fecha_creacion).toLocaleDateString('es-ES')}
+									</span>
+								</div>
+								
+								{#if $negocioActual.descripcion}
+									<div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+										<span class="text-sm font-medium text-gray-600 dark:text-gray-400 block mb-2">Descripción</span>
+										<p class="text-sm text-gray-900 dark:text-white">
+											{$negocioActual.descripcion}
+										</p>
+									</div>
+								{/if}
+								
+								<div class="pt-4">
+									<button 
+										class="w-full px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+										on:click={() => pestanaActiva = 'configuracion'}
+									>
+										⚙️ Configurar Negocio
+									</button>
 								</div>
 							</div>
 						</div>
 					</div>
 
-					<!-- Información del negocio -->
-					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-						<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-							Información del Negocio
-						</h3>
-						<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-							<div>
-								<p class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Descripción</p>
-								<p class="text-gray-900 dark:text-white">
-									{$negocioActual.descripcion || 'Sin descripción'}
-								</p>
+					<!-- Tareas Pendientes y Marketing -->
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+						<!-- Tareas Pendientes ESTILO CLICKUP -->
+						<div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+							<div class="flex items-center justify-between mb-6">
+								<div class="flex items-center space-x-3">
+									<div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+										<Calendar class="w-5 h-5 text-purple-600 dark:text-purple-400" />
+									</div>
+									<div>
+										<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+											📋 Tareas del Negocio
+										</h3>
+										<p class="text-xs text-gray-500 dark:text-gray-400">
+											{tareasNegocio.filter(t => t.estado === 'por-hacer').length} pendientes • {tareasNegocio.filter(t => t.estado === 'en-progreso').length} en progreso
+										</p>
+									</div>
+								</div>
+								<div class="flex items-center space-x-2">
+									<button 
+										class="px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors text-xs font-medium"
+										on:click={() => abrirModalTarea()}
+									>
+										+ Nueva
+									</button>
+									<button 
+										class="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+										on:click={() => pestanaActiva = 'tareas'}
+									>
+										Ver todas ({tareasNegocio.length})
+									</button>
+								</div>
 							</div>
-							<div>
-								<p class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Fecha de Creación</p>
-								<p class="text-gray-900 dark:text-white">
-									{new Date($negocioActual.fecha_creacion).toLocaleDateString()}
-								</p>
+							
+							{#if tareasNegocio.length > 0}
+								<!-- Estadísticas Rápidas de Tareas -->
+								<div class="grid grid-cols-4 gap-3 mb-6">
+									<div class="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+										<p class="text-lg font-bold text-orange-600 dark:text-orange-400">
+											{tareasNegocio.filter(t => t.estado === 'por-hacer').length}
+										</p>
+										<p class="text-xs text-orange-600 dark:text-orange-400 font-medium">Por Hacer</p>
+									</div>
+									<div class="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+										<p class="text-lg font-bold text-blue-600 dark:text-blue-400">
+											{tareasNegocio.filter(t => t.estado === 'en-progreso').length}
+										</p>
+										<p class="text-xs text-blue-600 dark:text-blue-400 font-medium">En Progreso</p>
+									</div>
+									<div class="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+										<p class="text-lg font-bold text-green-600 dark:text-green-400">
+											{tareasNegocio.filter(t => t.estado === 'completada').length}
+										</p>
+										<p class="text-xs text-green-600 dark:text-green-400 font-medium">Completadas</p>
+									</div>
+									<div class="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+										<p class="text-lg font-bold text-purple-600 dark:text-purple-400">
+											{Math.round((tareasNegocio.filter(t => t.estado === 'completada').length / tareasNegocio.length) * 100) || 0}%
+										</p>
+										<p class="text-xs text-purple-600 dark:text-purple-400 font-medium">Progreso</p>
+									</div>
+								</div>
+
+								<!-- Lista de Tareas Estilo ClickUp -->
+								<div class="space-y-2">
+									{#each tareasNegocio.slice(0, 6) as tarea}
+										<div class="group flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 transition-all duration-200 hover:shadow-sm">
+											<!-- Checkbox de Estado -->
+											<div class="flex-shrink-0">
+												<button 
+													class="w-5 h-5 rounded border-2 transition-all duration-200 flex items-center justify-center
+														{tarea.estado === 'completada' 
+															? 'bg-green-500 border-green-500 text-white' 
+															: tarea.estado === 'en-progreso'
+															? 'bg-blue-500 border-blue-500 text-white'
+															: 'border-gray-300 dark:border-gray-500 hover:border-purple-400'}"
+													on:click={() => {
+														// Cambiar estado de la tarea
+														const nuevoEstado = tarea.estado === 'completada' 
+															? 'por-hacer' 
+															: tarea.estado === 'por-hacer' 
+															? 'en-progreso' 
+															: 'completada';
+														handleMoverTarea(tarea, nuevoEstado);
+													}}
+												>
+													{#if tarea.estado === 'completada'}
+														<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+															<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+														</svg>
+													{:else if tarea.estado === 'en-progreso'}
+														<div class="w-2 h-2 bg-white rounded-full"></div>
+													{/if}
+												</button>
+											</div>
+
+											<!-- Indicador de Prioridad -->
+											<div class="flex-shrink-0">
+												<div class="w-2 h-8 rounded-full {
+													tarea.prioridad === 'urgente' ? 'bg-red-500' :
+													tarea.prioridad === 'alta' ? 'bg-orange-500' :
+													tarea.prioridad === 'media' ? 'bg-yellow-500' : 'bg-green-500'
+												}"></div>
+											</div>
+
+											<!-- Contenido de la Tarea -->
+											<div class="flex-1 min-w-0">
+												<div class="flex items-center space-x-2">
+													<p class="text-sm font-medium text-gray-900 dark:text-white truncate 
+														{tarea.estado === 'completada' ? 'line-through text-gray-500 dark:text-gray-400' : ''}">
+														{tarea.titulo}
+													</p>
+													<!-- Etiqueta de Estado -->
+													<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+														{tarea.estado === 'completada' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+														tarea.estado === 'en-progreso' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+														tarea.estado === 'en-revision' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
+														'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}">
+														{tarea.estado === 'por-hacer' ? 'Pendiente' :
+														tarea.estado === 'en-progreso' ? 'En Progreso' :
+														tarea.estado === 'en-revision' ? 'En Revisión' : 'Completada'}
+													</span>
+												</div>
+												{#if tarea.descripcion}
+													<p class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+														{tarea.descripcion}
+													</p>
+												{/if}
+											</div>
+
+											<!-- Fecha y Acciones -->
+											<div class="flex-shrink-0 flex items-center space-x-2">
+												{#if tarea.fecha_limite}
+													<span class="text-xs px-2 py-1 rounded {
+														new Date(tarea.fecha_limite) < new Date() && tarea.estado !== 'completada'
+															? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+															: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+													}">
+														{new Date(tarea.fecha_limite).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+													</span>
+												{/if}
+												
+												<!-- Botón de Editar (visible en hover) -->
+												<button 
+													class="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-all duration-200"
+													on:click={() => editarTarea(tarea)}
+													title="Editar tarea"
+												>
+													<svg class="w-3 h-3 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+													</svg>
+												</button>
+											</div>
+										</div>
+									{/each}
+
+									<!-- Ver Más Tareas -->
+									{#if tareasNegocio.length > 6}
+										<button 
+											class="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+											on:click={() => pestanaActiva = 'tareas'}
+										>
+											Ver {tareasNegocio.length - 6} tareas más...
+										</button>
+									{/if}
+								</div>
+							{:else}
+								<!-- Estado Vacío con CTA -->
+								<div class="text-center py-12">
+									<div class="mb-4">
+										<div class="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+											<Calendar class="w-8 h-8 text-purple-600 dark:text-purple-400" />
+										</div>
+									</div>
+									<h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+										¡Comienza a organizar tu negocio!
+									</h4>
+									<p class="text-gray-500 dark:text-gray-400 text-sm mb-6 max-w-sm mx-auto">
+										Las tareas te ayudan a mantener el control y no olvidar ningún detalle importante.
+									</p>
+									<button 
+										class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-lg hover:shadow-xl"
+										on:click={() => abrirModalTarea()}
+									>
+										✨ Crear Mi Primera Tarea
+									</button>
+								</div>
+							{/if}
+						</div>
+
+						<!-- Marketing Overview -->
+						<div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+							<div class="flex items-center justify-between mb-6">
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+									🎯 Marketing
+								</h3>
+								<button 
+									class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+									on:click={() => pestanaActiva = 'marketing'}
+								>
+									Ver campañas
+								</button>
+							</div>
+							
+							<div class="space-y-4">
+								{#if campañasNegocio.length > 0}
+									<div class="grid grid-cols-2 gap-4 mb-4">
+										<div class="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+											<p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+												{campañasNegocio.length}
+											</p>
+											<p class="text-xs text-blue-600 dark:text-blue-400">Campañas</p>
+										</div>
+										<div class="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+											<p class="text-2xl font-bold text-green-600 dark:text-green-400">
+												{campañasNegocio.filter(c => c.estado === 'activa').length}
+											</p>
+											<p class="text-xs text-green-600 dark:text-green-400">Activas</p>
+										</div>
+									</div>
+									
+									{#each campañasNegocio.slice(0, 2) as campaña}
+										<div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+											<div class="flex items-center justify-between">
+												<span class="text-sm font-medium text-gray-900 dark:text-white">
+													{campaña.nombre}
+												</span>
+												<span class="text-xs px-2 py-1 {
+													campaña.estado === 'activa' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+													campaña.estado === 'pausada' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
+													'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+												} rounded-full capitalize">
+													{campaña.estado}
+												</span>
+											</div>
+											<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+												${campaña.presupuesto_total.toLocaleString()} • {campaña.plataforma}
+											</p>
+										</div>
+									{/each}
+								{:else}
+									<div class="text-center py-6">
+										<Target class="w-10 h-10 text-gray-400 mx-auto mb-3" />
+										<p class="text-gray-500 dark:text-gray-400 text-sm">No hay campañas activas</p>
+										<button 
+											class="mt-3 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
+											on:click={() => pestanaActiva = 'marketing'}
+										>
+											Crear Primera Campaña
+										</button>
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>
-
 				{:else if pestanaActiva === 'productos'}
 					<!-- Sección de Productos -->
 					<div class="space-y-6">
@@ -1249,6 +1871,50 @@
 						{/if}
 					</div>
 
+				{:else if pestanaActiva === 'calendario'}
+					<!-- Calendario Interactivo -->
+					<div class="space-y-6">
+						<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+							<div>
+								<h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+									📅 Calendario de {$negocioActual?.nombre}
+								</h2>
+								<p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+									Gestiona tareas y campañas de marketing con fechas específicas
+								</p>
+							</div>
+						</div>
+
+						{#if $negocioActual}
+							<CalendarioInteractivo 
+								tareas={tareasNegocio}
+								campañas={campañasNegocio}
+								tipoContexto="negocio"
+								contextoId={$negocioActual.id}
+								contextoNombre={$negocioActual.nombre}
+								on:diaSeleccionado={(event) => {
+									console.log('Día seleccionado:', event.detail);
+								}}
+								on:crearElemento={async (event) => {
+									const datos = event.detail;
+									console.log('Crear elemento desde calendario:', datos);
+									
+									if (datos.tipo === 'tarea') {
+										// Crear tarea
+										console.log('Creando tarea con fecha:', datos.fecha);
+									} else if (datos.tipo === 'campaña') {
+										// Crear campaña
+										console.log('Creando campaña con fecha:', datos.fecha);
+									}
+								}}
+							/>
+						{:else}
+							<div class="text-center py-8">
+								<Cargando />
+							</div>
+						{/if}
+					</div>
+
 				{:else if pestanaActiva === 'configuracion'}
 					<!-- Configuración del negocio -->
 					<div class="space-y-6 sm:space-y-8 max-w-full">
@@ -1628,5 +2294,319 @@
 				</div>
 			</form>
 		</Modal>
+	</div>
+{/if}
+
+<!-- Modal para crear cliente -->
+{#if modalCliente}
+	<div class="fixed inset-0 z-50 overflow-y-auto">
+		<div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" on:click={() => modalCliente = false}></div>
+		
+		<div class="flex min-h-screen items-center justify-center p-4">
+			<div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full p-6">
+				<div class="flex items-center justify-between mb-6">
+					<h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+						<UserCheck class="w-6 h-6 mr-3 text-pink-500" />
+						👤 Nuevo Cliente
+					</h3>
+					<button 
+						class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+						on:click={() => modalCliente = false}
+					>
+						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+						</svg>
+					</button>
+				</div>
+				
+				<form on:submit|preventDefault={handleCrearCliente} class="space-y-4">
+					<!-- Información básica -->
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Nombre *
+							</label>
+							<input 
+								type="text" 
+								bind:value={formCliente.nombre}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+								placeholder="Nombre del cliente"
+								required
+							/>
+						</div>
+						
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Email
+							</label>
+							<input 
+								type="email" 
+								bind:value={formCliente.email}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+								placeholder="email@ejemplo.com"
+							/>
+						</div>
+					</div>
+
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Teléfono
+							</label>
+							<input 
+								type="tel" 
+								bind:value={formCliente.telefono}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+								placeholder="+57 300 123 4567"
+							/>
+						</div>
+						
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Empresa
+							</label>
+							<input 
+								type="text" 
+								bind:value={formCliente.empresa}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+								placeholder="Nombre de la empresa"
+							/>
+						</div>
+					</div>
+
+					<div>
+						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+							Dirección
+						</label>
+						<input 
+							type="text" 
+							bind:value={formCliente.direccion}
+							class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+							placeholder="Dirección completa"
+						/>
+					</div>
+
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Categoría
+							</label>
+							<select 
+								bind:value={formCliente.categoria_cliente}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+							>
+								<option value="nuevo">🆕 Nuevo</option>
+								<option value="regular">👤 Regular</option>
+								<option value="silver">🥈 Silver</option>
+								<option value="gold">🥇 Gold</option>
+								<option value="premium">💎 Premium</option>
+							</select>
+						</div>
+						
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Límite de Crédito
+							</label>
+							<div class="relative">
+								<span class="absolute left-3 top-3 text-gray-500 dark:text-gray-400">$</span>
+								<input 
+									type="number"
+									min="0"
+									step="10000"
+									bind:value={formCliente.limite_credito}
+									class="w-full pl-8 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+									placeholder="0"
+								/>
+							</div>
+						</div>
+					</div>
+
+					<!-- Botones -->
+					<div class="flex space-x-3 pt-6">
+						<button 
+							type="submit"
+							class="flex-1 px-6 py-3 bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+							disabled={!formCliente.nombre.trim()}
+						>
+							<UserCheck class="w-5 h-5 mr-2 inline" />
+							Crear Cliente
+						</button>
+						<button 
+							type="button"
+							class="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium rounded-lg transition-colors duration-200"
+							on:click={() => modalCliente = false}
+						>
+							Cancelar
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Modal para crear producto -->
+{#if modalProducto}
+	<div class="fixed inset-0 z-50 overflow-y-auto">
+		<div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" on:click={() => modalProducto = false}></div>
+		
+		<div class="flex min-h-screen items-center justify-center p-4">
+			<div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full p-6">
+				<div class="flex items-center justify-between mb-6">
+					<h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+						<Package class="w-6 h-6 mr-3 text-orange-500" />
+						📦 Nuevo Producto
+					</h3>
+					<button 
+						class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+						on:click={() => modalProducto = false}
+					>
+						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+						</svg>
+					</button>
+				</div>
+				
+				<form on:submit|preventDefault={handleCrearProducto} class="space-y-4">
+					<!-- Información básica -->
+					<div>
+						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+							Nombre del Producto *
+						</label>
+						<input 
+							type="text" 
+							bind:value={formProducto.nombre}
+							class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+							placeholder="Nombre del producto"
+							required
+						/>
+					</div>
+
+					<div>
+						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+							Descripción
+						</label>
+						<textarea 
+							bind:value={formProducto.descripcion}
+							class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
+							rows="3"
+							placeholder="Descripción del producto"
+						></textarea>
+					</div>
+
+					<!-- Precios -->
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Precio de Venta *
+							</label>
+							<div class="relative">
+								<span class="absolute left-3 top-3 text-gray-500 dark:text-gray-400">$</span>
+								<input 
+									type="number"
+									min="0"
+									step="100"
+									bind:value={formProducto.precio}
+									class="w-full pl-8 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+									placeholder="0"
+									required
+								/>
+							</div>
+						</div>
+						
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Costo
+							</label>
+							<div class="relative">
+								<span class="absolute left-3 top-3 text-gray-500 dark:text-gray-400">$</span>
+								<input 
+									type="number"
+									min="0"
+									step="100"
+									bind:value={formProducto.costo}
+									class="w-full pl-8 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+									placeholder="0"
+								/>
+							</div>
+						</div>
+					</div>
+
+					<!-- Inventario -->
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Stock Actual
+							</label>
+							<input 
+								type="number"
+								min="0"
+								bind:value={formProducto.stock_actual}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+								placeholder="0"
+							/>
+						</div>
+						
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Stock Mínimo
+							</label>
+							<input 
+								type="number"
+								min="0"
+								bind:value={formProducto.stock_minimo}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+								placeholder="5"
+							/>
+						</div>
+					</div>
+
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Categoría
+							</label>
+							<input 
+								type="text" 
+								bind:value={formProducto.categoria}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+								placeholder="Ej: Electrónicos"
+							/>
+						</div>
+						
+						<div>
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Código de Barras
+							</label>
+							<input 
+								type="text" 
+								bind:value={formProducto.codigo_barras}
+								class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+								placeholder="123456789"
+							/>
+						</div>
+					</div>
+
+					<!-- Botones -->
+					<div class="flex space-x-3 pt-6">
+						<button 
+							type="submit"
+							class="flex-1 px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+							disabled={!formProducto.nombre.trim() || formProducto.precio <= 0}
+						>
+							<Package class="w-5 h-5 mr-2 inline" />
+							Crear Producto
+						</button>
+						<button 
+							type="button"
+							class="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium rounded-lg transition-colors duration-200"
+							on:click={() => modalProducto = false}
+						>
+							Cancelar
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
 	</div>
 {/if} 

@@ -1,10 +1,14 @@
 import type { LayoutLoad } from './$types';
 
-export const load: LayoutLoad = async ({ url }) => {
-    // Log simple para debug
+export const load: LayoutLoad = async ({ url, depends }) => {
+    // Forzar invalidación cuando la URL cambia
+    depends('app:navigation');
+    
+    // Log para debug
     console.log('🔄 Layout cargando para ruta:', url.pathname);
     
     return {
-        url: url.pathname
+        pathname: url.pathname,
+        timestamp: Date.now() // Forzar actualización
     };
 }; 

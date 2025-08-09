@@ -19,8 +19,13 @@
         Plus,
         Edit3,
         Trash2,
-        X
+        X,
+        FileText
     } from 'lucide-svelte';
+    import FormularioMovimiento from '$lib/componentes/movimientos/FormularioMovimiento.svelte';
+    import TarjetaMovimiento from '$lib/componentes/movimientos/TarjetaMovimiento.svelte';
+    import Modal from '$lib/componentes/ui/Modal.svelte';
+    import Boton from '$lib/componentes/ui/Boton.svelte';
 
     // Estado del modal
     let modalAbierto = false;
@@ -122,162 +127,208 @@
             await finanzasPersonalesStore.cargar($user);
         }
     });
+
+	// Variables reactivas para métricas
+	$: totalIngresos = $finanzasPersonales
+		.filter(f => f.tipo === 'ingreso')
+		.reduce((sum, f) => sum + Number(f.monto), 0);
+
+	$: totalGastos = $finanzasPersonales
+		.filter(f => f.tipo === 'gasto')
+		.reduce((sum, f) => sum + Number(f.monto), 0);
+
+	$: balance = totalIngresos - totalGastos;
 </script>
 
 <svelte:head>
     <title>Finanzas Personales - App Contabilidad</title>
 </svelte:head>
 
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                <DollarSign class="w-8 h-8 text-green-600" />
-                Finanzas Personales
-            </h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">
-                Controla todos tus ingresos y gastos personales
-            </p>
-        </div>
-        
-        <button 
-            on:click={abrirModalNuevo}
-            class="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-            <Plus class="w-4 h-4" />
-            <span>Nuevo Movimiento</span>
-        </button>
-    </div>
+<!-- Contenedor principal OPTIMIZADO -->
+<div class="w-full max-w-full p-2 sm:p-4 space-y-4">
+	<!-- Header COMPACTO -->
+	<div class="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-4 border border-green-200 dark:border-gray-700">
+		<div class="flex flex-col sm:flex-row sm:items-center justify-between">
+			<div>
+				<h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+					<DollarSign class="w-6 h-6 text-green-600 mr-2" />
+					💰 Finanzas Personales
+				</h1>
+				<p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+					Controla todos tus ingresos y gastos personales
+				</p>
+			</div>
+			<Boton 
+				on:click={() => modalAbierto = true}
+				class="mt-3 sm:mt-0"
+			>
+				<Plus class="w-4 h-4 mr-2" />
+				Nuevo Movimiento
+			</Boton>
+		</div>
+	</div>
 
-    <!-- Estadísticas -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <!-- Total Ingresos -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Total Ingresos</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                        {formatearMoneda($resumenFinanzas.total_ingresos)}
-                    </p>
-                </div>
-                <TrendingUp class="w-8 h-8 text-green-600" />
-            </div>
-        </div>
+	<!-- Métricas financieras COMPACTAS -->
+	<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+		<!-- Total Ingresos -->
+		<div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Total Ingresos</p>
+					<p class="text-xl font-bold text-green-700 dark:text-green-300">
+						{formatearMoneda(totalIngresos)}
+					</p>
+					<div class="flex items-center mt-1">
+						<TrendingUp class="w-3 h-3 text-green-500 mr-1" />
+						<span class="text-xs text-green-600 dark:text-green-400">Este mes</span>
+					</div>
+				</div>
+				<TrendingUp class="w-6 h-6 text-green-500" />
+			</div>
+		</div>
 
-        <!-- Total Gastos -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Total Gastos</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                        {formatearMoneda($resumenFinanzas.total_gastos)}
-                    </p>
-                </div>
-                <TrendingDown class="w-8 h-8 text-red-600" />
-            </div>
-        </div>
+		<!-- Total Gastos -->
+		<div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Total Gastos</p>
+					<p class="text-xl font-bold text-red-700 dark:text-red-300">
+						{formatearMoneda(totalGastos)}
+					</p>
+					<div class="flex items-center mt-1">
+						<TrendingDown class="w-3 h-3 text-red-500 mr-1" />
+						<span class="text-xs text-red-600 dark:text-red-400">Este mes</span>
+					</div>
+				</div>
+				<TrendingDown class="w-6 h-6 text-red-500" />
+			</div>
+		</div>
 
-        <!-- Balance -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Balance</p>
-                    <p class="text-2xl font-bold {$resumenFinanzas.balance_neto >= 0 ? 'text-green-600' : 'text-red-600'}">
-                        {formatearMoneda($resumenFinanzas.balance_neto)}
-                    </p>
-                </div>
-                <DollarSign class="w-8 h-8 text-blue-600" />
-            </div>
-        </div>
+		<!-- Balance -->
+		<div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Balance</p>
+					<p class="text-xl font-bold {balance >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}">
+						{formatearMoneda(balance)}
+					</p>
+					<div class="flex items-center mt-1">
+						<DollarSign class="w-3 h-3 text-blue-500 mr-1" />
+						<span class="text-xs text-blue-600 dark:text-blue-400">Actual</span>
+					</div>
+				</div>
+				<DollarSign class="w-6 h-6 text-blue-500" />
+			</div>
+		</div>
 
-        <!-- Movimientos -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Movimientos</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                        {$resumenFinanzas.total_movimientos}
-                    </p>
-                </div>
-                <Receipt class="w-8 h-8 text-purple-600" />
-            </div>
-        </div>
-    </div>
+		<!-- Movimientos -->
+		<div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">Movimientos</p>
+					<p class="text-xl font-bold text-purple-700 dark:text-purple-300">
+						{$finanzasPersonales.length}
+					</p>
+					<div class="flex items-center mt-1">
+						<FileText class="w-3 h-3 text-purple-500 mr-1" />
+						<span class="text-xs text-purple-600 dark:text-purple-400">Registrados</span>
+					</div>
+				</div>
+				<FileText class="w-6 h-6 text-purple-500" />
+			</div>
+		</div>
+	</div>
 
-    <!-- Lista de Finanzas -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border">
-        <div class="p-6 border-b">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                Movimientos Recientes ({$finanzasPersonales.length})
-            </h3>
-        </div>
-        
-        <div class="divide-y">
-            {#if $cargandoFinanzas}
-                <div class="p-6 text-center">
-                    <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                    <p class="text-gray-500">Cargando finanzas...</p>
-                </div>
-            {:else if $finanzasPersonales.length === 0}
-                <div class="p-6 text-center">
-                    <Receipt class="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p class="text-gray-500">No hay finanzas registradas</p>
-                    <p class="text-sm text-gray-400 mt-2">Los datos se cargan desde la tabla finanzas_personales</p>
-                    <button 
-                        on:click={abrirModalNuevo}
-                        class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                        Crear primer movimiento
-                    </button>
-                </div>
-            {:else}
-                {#each $finanzasPersonales as finanza}
-                    <div class="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <div class="flex justify-between items-center">
-                            <div class="flex-1">
-                                <h4 class="font-medium text-gray-900 dark:text-white">
-                                    {finanza.descripcion}
-                                </h4>
-                                <p class="text-sm text-gray-500">
-                                    {finanza.fecha_gasto} • {finanza.tipo || 'gasto'}
-                                    {#if finanza.metodo_pago}
-                                        • {finanza.metodo_pago}
-                                    {/if}
-                                    {#if finanza.proveedor}
-                                        • {finanza.proveedor}
-                                    {/if}
-                                </p>
-                            </div>
-                            
-                            <div class="flex items-center space-x-3">
-                                <span class="text-lg font-semibold {finanza.tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'}">
-                                    {finanza.tipo === 'ingreso' ? '+' : '-'}{formatearMoneda(Number(finanza.monto))}
-                                </span>
-                                
-                                <div class="flex items-center space-x-1">
-                                    <button
-                                        on:click={() => editarFinanza(finanza)}
-                                        class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                                        title="Editar"
-                                    >
-                                        <Edit3 class="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        on:click={() => eliminarFinanza(finanza.id || '', finanza.descripcion || 'Movimiento')}
-                                        class="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                                        title="Eliminar"
-                                    >
-                                        <Trash2 class="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                {/each}
-            {/if}
-        </div>
-    </div>
+	<!-- Movimientos Recientes COMPACTO -->
+	<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+		<div class="p-4 border-b border-gray-200 dark:border-gray-700">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+				📊 Movimientos Recientes
+			</h2>
+		</div>
+		
+		<div class="overflow-x-auto">
+			{#if $cargandoFinanzas}
+				<div class="p-6 text-center">
+					<div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+					<p class="text-gray-500">Cargando finanzas...</p>
+				</div>
+			{:else if $finanzasPersonales.length === 0}
+				<div class="text-center py-8">
+					<DollarSign class="w-12 h-12 text-gray-400 mx-auto mb-3" />
+					<p class="text-gray-500 dark:text-gray-400 mb-4">No hay movimientos registrados</p>
+					<Boton on:click={() => modalAbierto = true}>
+						<Plus class="w-4 h-4 mr-2" />
+						Crear Primer Movimiento
+					</Boton>
+				</div>
+			{:else}
+				<table class="w-full">
+					<thead class="bg-gray-50 dark:bg-gray-700/50">
+						<tr>
+							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+								Descripción
+							</th>
+							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+								Tipo
+							</th>
+							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+								Monto
+							</th>
+							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+								Fecha
+							</th>
+							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+								Acciones
+							</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+						{#each $finanzasPersonales.slice(0, 10) as finanza}
+							<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+								<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+									{finanza.descripcion}
+								</td>
+								<td class="px-4 py-3">
+									<span class="inline-flex px-2 py-1 text-xs font-medium rounded {
+										finanza.tipo === 'ingreso' 
+											? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+											: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+									}">
+										{finanza.tipo === 'ingreso' ? '💰 Ingreso' : '💸 Gasto'}
+									</span>
+								</td>
+								<td class="px-4 py-3 text-sm font-semibold {
+									finanza.tipo === 'ingreso' 
+										? 'text-green-600 dark:text-green-400' 
+										: 'text-red-600 dark:text-red-400'
+								}">
+									{finanza.tipo === 'ingreso' ? '+' : '-'}{formatearMoneda(Number(finanza.monto))}
+								</td>
+								<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+									{new Date(finanza.fecha_gasto).toLocaleDateString('es-ES')}
+								</td>
+								<td class="px-4 py-3">
+									<button 
+										on:click={() => editarFinanza(finanza)}
+										class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+									>
+										<Edit3 class="w-4 h-4" />
+									</button>
+									<button 
+										on:click={() => eliminarFinanza(finanza.id || '', finanza.descripcion || 'Movimiento')}
+										class="ml-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+									>
+										<Trash2 class="w-4 h-4" />
+									</button>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</div>
+	</div>
 </div>
 
 <!-- Modal Nuevo/Editar Finanza -->

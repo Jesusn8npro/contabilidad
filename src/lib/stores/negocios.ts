@@ -3,6 +3,7 @@ import type { Negocio } from '$lib/tipos/app';
 import { supabase } from '$lib/supabase/cliente';
 import { user } from '$lib/stores/auth';
 import { mostrarError, mostrarExito } from '$lib/stores/toast';
+import { generarSlugUnico } from '$lib/utils/slug';
 
 // ======================================
 // STORES PRINCIPALES
@@ -157,6 +158,65 @@ export const cargarNegocioPorSlug = async (slug: string): Promise<Negocio | null
 	}
 };
 
+// Función para limpiar slugs existentes (ejecutar una sola vez)
+export const limpiarSlugsExistentes = async (): Promise<void> => {
+	try {
+		const { data: { user: currentUser } } = await supabase.auth.getUser();
+		
+		if (!currentUser) {
+			throw new Error('No hay usuario autenticado');
+		}
+
+		// Obtener todos los negocios del usuario
+		const { data: negociosExistentes } = await supabase
+			.from('negocios')
+			.select('id, nombre, slug')
+			.eq('usuario_id', currentUser.id);
+
+		if (!negociosExistentes) return;
+
+		const actualizaciones = [];
+
+		for (const negocio of negociosExistentes) {
+			// Si el slug tiene números raros al final, limpiarlo
+			if (negocio.slug.match(/-[0-9a-f]+$/)) {
+				const slugLimpio = generarSlugUnico(negocio.nombre, 
+					negociosExistentes.map(n => n.slug).filter(s => s !== negocio.slug)
+				);
+				
+				actualizaciones.push({
+					id: negocio.id,
+					slug: slugLimpio
+				});
+			}
+		}
+
+		// Actualizar los slugs en la base de datos
+		for (const actualizacion of actualizaciones) {
+			const { error } = await supabase
+				.from('negocios')
+				.update({ slug: actualizacion.slug })
+				.eq('id', actualizacion.id);
+
+			if (error) {
+				console.error('Error actualizando slug:', error);
+			} else {
+				console.log(`✅ Slug actualizado: ${actualizacion.slug}`);
+			}
+		}
+
+		if (actualizaciones.length > 0) {
+			mostrarExito(`${actualizaciones.length} slugs actualizados`);
+			// Recargar negocios
+			await cargarNegocios();
+		}
+
+	} catch (error) {
+		console.error('Error limpiando slugs:', error);
+		mostrarError('Error al limpiar slugs');
+	}
+};
+
 export const crearNegocio = async (negocioData: Partial<Negocio>): Promise<Negocio> => {
 	try {
 		// Obtener el usuario actual
@@ -166,15 +226,21 @@ export const crearNegocio = async (negocioData: Partial<Negocio>): Promise<Negoc
 			throw new Error('No hay usuario autenticado');
 		}
 
-		// Generar slug simple
-		const slug = negocioData.nombre 
-			? negocioData.nombre.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
-			: 'negocio';
+		// Obtener todos los slugs existentes para evitar duplicados
+		const { data: negociosExistentes } = await supabase
+			.from('negocios')
+			.select('slug')
+			.eq('usuario_id', currentUser.id);
+
+		const slugsExistentes = negociosExistentes?.map(n => n.slug) || [];
+
+		// Generar slug único usando la función correcta
+		const slug = generarSlugUnico(negocioData.nombre || 'negocio', slugsExistentes);
 
 		const nuevoNegocio = {
 			...negocioData,
 			usuario_id: currentUser.id,
-			slug: slug + '-' + Date.now(), // Slug único
+			slug: slug, // Slug limpio sin números raros
 			fecha_creacion: new Date().toISOString()
 		};
 

@@ -141,8 +141,12 @@
 
 	const handleSeleccionarProyecto = (event: CustomEvent<{ proyecto: Proyecto }>) => {
 		const { proyecto } = event.detail;
-		console.log('Navegando a proyecto:', proyecto.slug);
-		goto(`/panel/proyectos/${proyecto.slug}`);
+		console.log('🎯 Navegando a proyecto:', proyecto.slug);
+		goto(`/panel/proyectos/${proyecto.slug}`, {
+			invalidateAll: true,
+			replaceState: false,
+			noScroll: false
+		});
 	};
 
 	const handleGuardarProyecto = async (event: CustomEvent<{ proyecto: Partial<Proyecto> }>) => {

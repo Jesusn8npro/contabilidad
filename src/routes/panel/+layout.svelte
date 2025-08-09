@@ -216,6 +216,7 @@
 							: 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}"
 					on:click={(e) => {
 						e.preventDefault();
+						menuMovilAbierto = false; // Cerrar menú móvil
 						goto(elemento.href, { 
 							invalidateAll: true,
 							replaceState: false,
@@ -330,11 +331,14 @@
 				<nav class="px-4 py-6 space-y-2">
 					{#each menuItems as elemento}
 						<button
-							on:click={() => goto(elemento.href, { 
-								invalidateAll: true,
-								replaceState: false,
-								noScroll: false
-							})}
+							on:click={() => {
+								goto(elemento.href, { 
+									invalidateAll: true,
+									replaceState: false,
+									noScroll: false
+								});
+								menuMovilAbierto = false;
+							}}
 							class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
 								{esRutaActiva(elemento.href)
 									? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
@@ -370,7 +374,7 @@
 		<!-- Contenido de la página -->
 		<main class="min-h-screen bg-gray-50 dark:bg-gray-900">
 			<!-- Contenido dinámico por ruta -->
-			{#key $page.url.pathname}
+			{#key data?.pathname}
 				<slot />
 			{/key}
 		</main>

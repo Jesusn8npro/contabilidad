@@ -98,9 +98,12 @@
 	};
 
 	const handleVerDetalle = (negocio: Negocio) => {
-		// Convertir nombre a slug (espacios a guiones, minúsculas)
-		const slug = negocio.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-		goto(`/panel/negocios/${slug}`);
+		console.log('🎯 Navegando a negocio:', negocio.slug);
+		goto(`/panel/negocios/${negocio.slug}`, {
+			invalidateAll: true,
+			replaceState: false,
+			noScroll: false
+		});
 	};
 
 	const handleEditarNegocio = (negocio: Negocio) => {
