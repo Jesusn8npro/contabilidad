@@ -1,19 +1,14 @@
 <script lang="ts">
     import { DollarSign, TrendingUp, TrendingDown, PieChart } from 'lucide-svelte';
     
-    // Datos simulados del resumen financiero
-    const resumenFinanciero = {
-        ingresosMes: 12500000,
-        gastosMes: 7200000,
-        utilidadNeta: 5300000,
-        margenGanancia: 42.4,
-        flujoEfectivo: 3800000,
-        cuentasPorCobrar: 2400000,
-        cuentasPorPagar: 1800000,
-        tendenciaIngreso: 'up',
-        tendenciaGasto: 'down',
-        proyeccionMes: 14200000
-    };
+    export let ingresosTotales: number = 0;
+    export let gastosTotales: number = 0;
+    export let balanceActual: number = 0;
+    
+    // Calculados
+    $: utilidadNeta = balanceActual;
+    $: margenGanancia = ingresosTotales > 0 ? (utilidadNeta / ingresosTotales) * 100 : 0;
+    $: tendenciaBalance = balanceActual >= 0 ? 'up' : 'down';
     
     function formatearMoneda(valor: number): string {
         return new Intl.NumberFormat('es-CO', {
@@ -45,7 +40,7 @@
                     <TrendingUp class="w-4 h-4 text-emerald-600" />
                 </div>
                 <p class="text-xl font-bold text-emerald-800 dark:text-emerald-200">
-                    {formatearMoneda(resumenFinanciero.ingresosMes)}
+                    {formatearMoneda(ingresosTotales)}
                 </p>
                 <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
                     +12.5% vs mes anterior
@@ -58,7 +53,7 @@
                     <TrendingDown class="w-4 h-4 text-red-600" />
                 </div>
                 <p class="text-xl font-bold text-red-800 dark:text-red-200">
-                    {formatearMoneda(resumenFinanciero.gastosMes)}
+                    {formatearMoneda(gastosTotales)}
                 </p>
                 <p class="text-xs text-red-600 dark:text-red-400 mt-1">
                     -3.2% vs mes anterior
@@ -73,11 +68,11 @@
                 <PieChart class="w-4 h-4 text-blue-600" />
             </div>
             <p class="text-2xl font-bold text-blue-800 dark:text-blue-200">
-                {formatearMoneda(resumenFinanciero.utilidadNeta)}
+                {formatearMoneda(utilidadNeta)}
             </p>
             <div class="flex items-center justify-between mt-2">
                 <span class="text-xs text-blue-600 dark:text-blue-400">
-                    Margen: {resumenFinanciero.margenGanancia}%
+                    Margen: {margenGanancia}%
                 </span>
                 <span class="px-2 py-1 bg-blue-600 text-white rounded-full text-xs font-medium">
                     ↗ +18.7%
@@ -90,28 +85,28 @@
             <div>
                 <span class="text-xs text-gray-500 dark:text-gray-400">Flujo de Efectivo</span>
                 <p class="text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatearMoneda(resumenFinanciero.flujoEfectivo)}
+                    {formatearMoneda(balanceActual)}
                 </p>
             </div>
             
             <div>
                 <span class="text-xs text-gray-500 dark:text-gray-400">Por Cobrar</span>
                 <p class="text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatearMoneda(resumenFinanciero.cuentasPorCobrar)}
+                    {formatearMoneda(0)}
                 </p>
             </div>
             
             <div>
                 <span class="text-xs text-gray-500 dark:text-gray-400">Por Pagar</span>
                 <p class="text-lg font-semibold text-red-600 dark:text-red-400">
-                    {formatearMoneda(resumenFinanciero.cuentasPorPagar)}
+                    {formatearMoneda(0)}
                 </p>
             </div>
             
             <div>
                 <span class="text-xs text-gray-500 dark:text-gray-400">Proyección</span>
                 <p class="text-lg font-semibold text-green-600 dark:text-green-400">
-                    {formatearMoneda(resumenFinanciero.proyeccionMes)}
+                    {formatearMoneda(0)}
                 </p>
             </div>
         </div>
