@@ -39,6 +39,47 @@ export const categoriasPorTipo = derived([categorias], ([$categorias]) => ({
     gastos: $categorias.filter(c => c.tipo_categoria === 'gasto')
 }));
 
+// Estadísticas financieras avanzadas
+export const estadisticasFinancieras = derived([movimientos], ([$movimientos]) => {
+    const ingresos = $movimientos.filter(m => m.tipo_movimiento === 'ingreso');
+    const gastos = $movimientos.filter(m => m.tipo_movimiento === 'gasto');
+    
+    const totalIngresos = ingresos.reduce((sum, m) => sum + m.monto, 0);
+    const totalGastos = gastos.reduce((sum, m) => sum + m.monto, 0);
+    const utilidadNeta = totalIngresos - totalGastos;
+    
+    // Datos del mes actual
+    const fechaActual = new Date();
+    const inicioMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1);
+    
+    const movimientosMes = $movimientos.filter(m => new Date(m.fecha_movimiento) >= inicioMes);
+    const ingresosMes = movimientosMes.filter(m => m.tipo_movimiento === 'ingreso');
+    const gastosMes = movimientosMes.filter(m => m.tipo_movimiento === 'gasto');
+    
+    const ingresosTotales = totalIngresos;
+    const gastosTotales = totalGastos;
+    const ventasHoy = ingresosMes.filter(m => {
+        const hoy = new Date();
+        const fechaMovimiento = new Date(m.fecha_movimiento);
+        return fechaMovimiento.toDateString() === hoy.toDateString();
+    }).reduce((sum, m) => sum + m.monto, 0);
+    
+    const crecimientoMensual = 12.5; // Simulado
+    const margenPromedio = totalIngresos > 0 ? ((utilidadNeta / totalIngresos) * 100) : 0;
+    
+    return {
+        ingresosTotales,
+        gastosTotales,
+        utilidadNeta,
+        ventasHoy,
+        crecimientoMensual,
+        margenPromedio,
+        balance: utilidadNeta,
+        totalIngresos,
+        totalGastos
+    };
+});
+
 // ==================== FUNCIONES DE MOVIMIENTOS ====================
 
 // Cargar movimientos financieros
@@ -111,10 +152,47 @@ export const cargarMovimientos = async (negocioId?: string, filtros?: {
 // Crear nuevo movimiento
 export const crearMovimiento = async (movimientoData: Partial<MovimientoFinanciero>): Promise<MovimientoFinanciero | null> => {
     try {
+        console.log('🚀 Datos recibidos para crear movimiento:', movimientoData);
+        
+        // Validar campos obligatorios
+        if (!movimientoData.negocio_id) {
+            console.error('❌ Error: negocio_id es requerido');
+            mostrarError('Error: Negocio requerido');
+            return null;
+        }
+        
+        if (!movimientoData.tipo_movimiento) {
+            console.error('❌ Error: tipo_movimiento es requerido');
+            mostrarError('Error: Tipo de movimiento requerido');
+            return null;
+        }
+        
+        if (!movimientoData.monto || movimientoData.monto <= 0) {
+            console.error('❌ Error: monto debe ser mayor a 0');
+            mostrarError('Error: Monto debe ser mayor a 0');
+            return null;
+        }
+        
+        if (!movimientoData.descripcion || movimientoData.descripcion.trim() === '') {
+            console.error('❌ Error: descripción es requerida');
+            mostrarError('Error: Descripción requerida');
+            return null;
+        }
+
+        // Preparar datos para insertar
         const nuevoMovimiento = {
-            ...movimientoData,
+            negocio_id: movimientoData.negocio_id,
+            tipo_movimiento: movimientoData.tipo_movimiento,
+            monto: Number(movimientoData.monto),
+            descripcion: movimientoData.descripcion.trim(),
+            fecha_movimiento: movimientoData.fecha_movimiento || new Date().toISOString().split('T')[0],
+            categoria_id: movimientoData.categoria_id || null,
+            metodo_pago: movimientoData.metodo_pago || 'efectivo',
+            notas: movimientoData.notas || null,
             fecha_creacion: new Date().toISOString()
         };
+
+        console.log('📝 Datos finales para insertar:', nuevoMovimiento);
 
         const { data, error } = await supabase
             .from('movimientos_financieros')
@@ -137,18 +215,22 @@ export const crearMovimiento = async (movimientoData: Partial<MovimientoFinancie
             .single();
 
         if (error) {
-            console.error('Error creando movimiento:', error);
-            mostrarError('Error al crear el movimiento financiero');
+            console.error('❌ Error de Supabase creando movimiento:', error);
+            console.error('❌ Detalles del error:', error.message);
+            console.error('❌ Código del error:', error.code);
+            mostrarError(`Error al crear movimiento: ${error.message}`);
             return null;
         }
+
+        console.log('✅ Movimiento creado exitosamente:', data);
 
         // Actualizar store local
         movimientos.update(lista => [data, ...lista]);
         mostrarExito('Movimiento financiero creado exitosamente');
         return data;
     } catch (error) {
-        console.error('Error en crearMovimiento:', error);
-        mostrarError('Error al crear el movimiento financiero');
+        console.error('❌ Error general en crearMovimiento:', error);
+        mostrarError('Error inesperado al crear el movimiento financiero');
         return null;
     }
 };

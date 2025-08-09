@@ -286,7 +286,7 @@ export const cargarTareasUsuario = async (): Promise<void> => {
         }
 
         const { data, error } = await supabase
-            .from('vista_tareas_completas')
+            .from('tareas')
             .select('*')
             .eq('usuario_id', user.id)
             .order('fecha_creacion', { ascending: false });
@@ -312,7 +312,7 @@ export const cargarTareasProyecto = async (proyectoId: string): Promise<void> =>
         cargandoTareas.set(true);
         
         const { data, error } = await supabase
-            .from('vista_tareas_completas')
+            .from('tareas')
             .select('*')
             .eq('proyecto_id', proyectoId)
             .order('orden', { ascending: true });
@@ -338,7 +338,7 @@ export const cargarTareasNegocio = async (negocioId: string): Promise<void> => {
         cargandoTareas.set(true);
         
         const { data, error } = await supabase
-            .from('vista_tareas_completas')
+            .from('tareas')
             .select('*')
             .eq('negocio_id', negocioId)
             .order('fecha_creacion', { ascending: false });

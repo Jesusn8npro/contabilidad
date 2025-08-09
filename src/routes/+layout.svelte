@@ -3,21 +3,68 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { 
 		inicializarAuth, 
 		autenticado, 
 		cargandoAuth 
 	} from '$lib/stores/auth';
+	import { inicializarTemas, alternarModoOscuro } from '$lib/stores/temas';
 	import Cargando from '$lib/componentes/ui/Cargando.svelte';
 	import ToastContainer from '$lib/componentes/ui/ToastContainer.svelte';
+	import ComandosRapidos from '$lib/componentes/ui/ComandosRapidos.svelte';
 
 	// Rutas que no requieren autenticación
 	const rutasPublicas = ['/', '/iniciar-sesion', '/registrarse'];
+	
+	// Estado del sistema de comandos
+	let comandosAbiertos = false;
 
-	// Inicializar autenticación al montar el componente
-	onMount(async () => {
-		await inicializarAuth();
+	// Inicializar aplicación al montar
+	onMount(() => {
+		// Inicializar servicios
+		inicializarAuth();
+		inicializarTemas();
+		
+		// Configurar atajo de teclado global para comandos
+		if (browser) {
+			const manejarAtajosTeclado = (event: KeyboardEvent) => {
+				// Ctrl+K o Cmd+K para abrir comandos
+				if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+					event.preventDefault();
+					comandosAbiertos = true;
+				}
+			};
+			
+			window.addEventListener('keydown', manejarAtajosTeclado);
+			
+			// Limpiar listener al desmontar
+			return () => {
+				window.removeEventListener('keydown', manejarAtajosTeclado);
+			};
+		}
 	});
+	
+	// Manejar eventos del sistema de comandos
+	const manejarComandos = (event: CustomEvent) => {
+		switch (event.type) {
+			case 'toggle-theme':
+				alternarModoOscuro();
+				break;
+			case 'abrir-modal':
+				// Aquí podrías manejar la apertura de modales específicos
+				console.log('Abrir modal:', event.detail.tipo);
+				break;
+			case 'exportar-datos':
+				// Manejar exportación de datos
+				console.log('Exportar datos');
+				break;
+			case 'buscar':
+				// Manejar búsquedas específicas
+				console.log('Buscar:', event.detail.tipo);
+				break;
+		}
+	};
 
 	// Reactivamente verificar autenticación y redirigir
 	$: {
@@ -67,6 +114,15 @@
 
 <!-- Contenedor de notificaciones -->
 <ToastContainer />
+
+<!-- Sistema de comandos rápidos -->
+<ComandosRapidos 
+	bind:abierto={comandosAbiertos}
+	on:toggle-theme={manejarComandos}
+	on:abrir-modal={manejarComandos}
+	on:exportar-datos={manejarComandos}
+	on:buscar={manejarComandos}
+/>
 
 <style>
 	/* Estilos globales adicionales */

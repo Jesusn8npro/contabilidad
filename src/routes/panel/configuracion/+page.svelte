@@ -27,8 +27,11 @@
         CheckCircle,
         Settings,
         Eye,
-        EyeOff
+        EyeOff,
+        Palette
     } from 'lucide-svelte';
+    import PersonalizadorTemas from '$lib/componentes/ui/PersonalizadorTemas.svelte';
+    import { alternarModoOscuro } from '$lib/stores/temas';
 
     // Estados del formulario
     let formularioPerfil = {
@@ -61,6 +64,7 @@
     let guardandoPerfil = false;
     let cambiandoContrasena = false;
     let mostrarContrasenas = false;
+    let mostrarPersonalizadorTemas = false;
 
     // Información del plan
     let limitesActuales = {
@@ -654,9 +658,11 @@
                         <!-- Tema -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                                Tema de la Aplicación
+                                Personalización de Temas
                             </label>
-                            <div class="flex space-x-4">
+                            
+                            <!-- Botones de tema básico -->
+                            <div class="flex space-x-4 mb-4">
                                 <button
                                     type="button"
                                     on:click={() => aplicarTema('light')}
@@ -671,7 +677,7 @@
                                 </button>
                                 <button
                                     type="button"
-                                    on:click={() => aplicarTema('dark')}
+                                    on:click={alternarModoOscuro}
                                     class={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors ${
                                         tema === 'dark'
                                             ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
@@ -681,6 +687,22 @@
                                     <Moon size={16} />
                                     <span>Oscuro</span>
                                 </button>
+                            </div>
+                            
+                            <!-- Botón para abrir personalizador avanzado -->
+                            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <button
+                                    type="button"
+                                    on:click={() => mostrarPersonalizadorTemas = true}
+                                    class="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                                >
+                                    <Palette size={18} />
+                                    <span class="font-medium">Personalizar Temas Avanzados</span>
+                                    <span class="bg-white/20 px-2 py-1 rounded-full text-xs">✨ Premium</span>
+                                </button>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                                    Accede a 7+ temas personalizables y crea los tuyos propios
+                                </p>
                             </div>
                         </div>
 
@@ -717,4 +739,7 @@
             </div>
         </div>
     </div>
-</div> 
+</div>
+
+<!-- Personalizador de Temas -->
+<PersonalizadorTemas bind:abierto={mostrarPersonalizadorTemas} /> 

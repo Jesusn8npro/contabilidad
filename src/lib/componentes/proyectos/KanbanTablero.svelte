@@ -3,6 +3,7 @@
 	import type { Proyecto, Tarea, EstadoTarea } from '$lib/tipos/app';
 	import { ESTADOS_TAREA } from '$lib/tipos/app';
 	import KanbanColumnaSortable from './KanbanColumnaSortable.svelte';
+	import TarjetaTarea from './TarjetaTarea.svelte'; // AGREGAR IMPORT
 	import Boton from '$lib/componentes/ui/Boton.svelte';
 	import Input from '$lib/componentes/ui/Input.svelte';
 	import { Filter, Search, Plus, ChevronDown, Users, Flag } from 'lucide-svelte';
@@ -153,6 +154,19 @@
 	const handleEliminarTarea = (event: CustomEvent) => {
 		console.log('🎯 KANBAN TABLERO - Eliminar tarea:', event.detail);
 		dispatch('eliminar-tarea', event.detail);
+	};
+
+	// NUEVO: Handler para cambio de estado desde vista móvil
+	const handleCambiarEstadoMovil = (event: CustomEvent) => {
+		console.log('📱 KANBAN TABLERO - Cambiar estado móvil:', event.detail);
+		const { tarea, estado } = event.detail;
+		
+		// Convertir al formato esperado por handleMoverTarea
+		dispatch('tarea-movida', {
+			tarea,
+			nuevoEstado: estado,
+			nuevoOrden: tarea.orden || 0
+		});
 	};
 
 	// Función para encontrar tarea por ID en todas las columnas
@@ -348,47 +362,13 @@
 					<!-- Tareas de la columna activa -->
 					{#if tareasAgrupadas[estadoActivoMovil]?.length > 0}
 						{#each tareasAgrupadas[estadoActivoMovil] as tarea (tarea.id)}
-							<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-								<div class="flex items-start justify-between mb-2">
-									<h4 class="font-medium text-gray-900 dark:text-white line-clamp-2">
-										{tarea.titulo}
-									</h4>
-									<div class="flex items-center space-x-1 ml-2 flex-shrink-0">
-										<!-- Prioridad -->
-										<div class="w-2 h-2 rounded-full {
-											tarea.prioridad === 'urgente' ? 'bg-red-500' :
-											tarea.prioridad === 'alta' ? 'bg-orange-500' :
-											tarea.prioridad === 'media' ? 'bg-yellow-500' : 'bg-green-500'
-										}"></div>
-									</div>
-								</div>
-								
-								{#if tarea.descripcion}
-									<p class="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-										{tarea.descripcion}
-									</p>
-								{/if}
-
-								<div class="flex items-center justify-between text-xs text-gray-500">
-									{#if tarea.fecha_limite}
-										<span>📅 {new Date(tarea.fecha_limite).toLocaleDateString('es-ES')}</span>
-									{:else}
-										<span></span>
-									{/if}
-									{#if tarea.etiquetas && tarea.etiquetas.length > 0}
-										<div class="flex gap-1">
-											{#each tarea.etiquetas.slice(0, 2) as etiqueta}
-												<span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">
-													{etiqueta}
-												</span>
-											{/each}
-											{#if tarea.etiquetas.length > 2}
-												<span class="text-gray-400">+{tarea.etiquetas.length - 2}</span>
-											{/if}
-										</div>
-									{/if}
-								</div>
-							</div>
+							<TarjetaTarea
+								{tarea}
+								draggable={false}
+								on:cambiarEstado={handleCambiarEstadoMovil}
+								on:editar={handleEditarTarea}
+								on:eliminar={handleEliminarTarea}
+							/>
 						{/each}
 					{:else}
 						<div class="text-center py-8">

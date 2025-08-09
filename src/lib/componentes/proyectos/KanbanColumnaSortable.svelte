@@ -147,12 +147,21 @@
 		dispatch('crear-tarea', { estado });
 	};
 
-	const handleEditarTarea = (event: CustomEvent<{ tarea: Tarea }>) => {
+	const handleEditarTarea = (event: any) => {
 		dispatch('editar-tarea', event.detail);
 	};
 
-	const handleEliminarTarea = (event: CustomEvent<{ tarea: Tarea }>) => {
+	const handleEliminarTarea = (event: any) => {
 		dispatch('eliminar-tarea', event.detail);
+	};
+
+	// NUEVO: Handler para cambiar estado
+	const handleCambiarEstado = (event: any) => {
+		dispatch('tarea-movida', {
+			tarea: event.detail.tarea,
+			nuevoEstado: event.detail.estado,
+			nuevoOrden: event.detail.tarea.orden || 0
+		});
 	};
 </script>
 
@@ -206,8 +215,8 @@
 		{:else}
 			<!-- Lista de tareas - VERSIÓN SIMPLE Y DIRECTA -->
 			{#each tareas as tarea (tarea.id)}
-				<div 
-					class="tarea-item mb-3 cursor-move"
+				<div
+					class="task-item p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm cursor-move hover:shadow-md transition-shadow"
 					data-id={tarea.id}
 				>
 					<TarjetaTarea
@@ -215,6 +224,7 @@
 						draggable={false}
 						on:editar={handleEditarTarea}
 						on:eliminar={handleEliminarTarea}
+						on:cambiarEstado={handleCambiarEstado}
 					/>
 				</div>
 			{/each}

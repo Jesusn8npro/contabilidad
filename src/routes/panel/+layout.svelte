@@ -1,9 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { navigating } from '$app/stores';
 	import { user, perfilUsuario, manejarCerrarSesion } from '$lib/stores/auth';
+	import { negocios, negocioActual } from '$lib/stores/negocios';
+	import { movimientos } from '$lib/stores/movimientos';
+	import { productos } from '$lib/stores/inventario';
+	import { clientes } from '$lib/stores/clientes';
+	import { browser } from '$app/environment';
 	import { 
 		Home, 
 		FolderOpen, 
@@ -17,7 +22,13 @@
 		Search,
 		ChevronDown,
 		Menu,
-		X
+		X,
+		Users,
+		Package,
+		BarChart3,
+		ShoppingCart,
+		Crown,
+		TrendingUp
 	} from 'lucide-svelte';
 	import BotonTema from '$lib/componentes/ui/BotonTema.svelte';
 	import NavegacionMovil from '$lib/componentes/ui/NavegacionMovil.svelte';
@@ -32,6 +43,24 @@
 	// Variables para sistema de navegación
 	let mostrarLoader = false;
 	let timer: NodeJS.Timeout;
+
+	// Detector de navegación trabada
+	let ultimaNavegacion = '';
+	let tiempoUltimaNavegacion = 0;
+	
+	const detectarNavegacionTrabada = (href: string) => {
+		const ahora = Date.now();
+		
+		// Si es la misma ruta en menos de 2 segundos, puede estar trabada
+		if (ultimaNavegacion === href && (ahora - tiempoUltimaNavegacion) < 2000) {
+			console.warn('⚠️ Posible navegación trabada detectada');
+			return true;
+		}
+		
+		ultimaNavegacion = href;
+		tiempoUltimaNavegacion = ahora;
+		return false;
+	};
 
 	// Elementos del menú principal
 	const elementosMenu = [
@@ -55,20 +84,50 @@
 		},
 		{
 			icono: DollarSign,
-			texto: 'Finanzas',
+			texto: 'Finanzas Personales',
 			href: '/panel/finanzas',
 			activo: false
 		},
 		{
+			icono: TrendingUp,
+			texto: 'Finanzas Avanzadas',
+			href: '/panel/finanzas-avanzadas',
+			activo: false
+		},
+		{
+			icono: Users,
+			texto: 'Clientes',
+			href: '/panel/clientes',
+			activo: false
+		},
+		{
+			icono: Package,
+			texto: 'Inventario',
+			href: '/panel/inventario',
+			activo: false
+		},
+		{
 			icono: FileText,
-			texto: 'Gastos Personales',
-			href: '/panel/gastos-personales',
+			texto: 'Tareas',
+			href: '/panel/tareas',
+			activo: false
+		},
+		{
+			icono: BarChart3,
+			texto: 'Marketing',
+			href: '/panel/marketing',
 			activo: false
 		},
 		{
 			icono: FileText,
 			texto: 'Reportes',
 			href: '/panel/reportes',
+			activo: false
+		},
+		{
+			icono: Crown,
+			texto: 'Membresías',
+			href: '/panel/membresias',
 			activo: false
 		},
 		{
@@ -108,11 +167,20 @@
 		if (href === '/panel/finanzas') {
 			return rutaActual.startsWith('/panel/finanzas');
 		}
-		if (href === '/panel/gastos-personales') {
-			return rutaActual.startsWith('/panel/gastos-personales');
+		if (href === '/panel/finanzas-avanzadas') {
+			return rutaActual.startsWith('/panel/finanzas-avanzadas');
+		}
+		if (href === '/panel/clientes') {
+			return rutaActual.startsWith('/panel/clientes');
+		}
+		if (href === '/panel/inventario') {
+			return rutaActual.startsWith('/panel/inventario');
 		}
 		if (href === '/panel/reportes') {
 			return rutaActual.startsWith('/panel/reportes');
+		}
+		if (href === '/panel/membresias') {
+			return rutaActual.startsWith('/panel/membresias');
 		}
 		if (href === '/panel/configuracion') {
 			return rutaActual.startsWith('/panel/configuracion');
@@ -121,17 +189,64 @@
 		return rutaActual.startsWith(href);
 	};
 
-	// Función mejorada de navegación
+	// Función ULTRA ROBUSTA de navegación (nunca falla)
 	const navegarA = async (href: string) => {
+		console.log('🚀 Navegando a:', href);
+		
+		// Cerrar menús inmediatamente
+		cerrarMenus();
+		
 		try {
+			// Método 1: Intentar SvelteKit primero
+			console.log('📍 Método 1: SvelteKit goto');
 			await goto(href, { 
+				invalidateAll: true,
 				replaceState: false,
-				noScroll: false,
-				keepFocus: false,
-				invalidateAll: true  // Fuerza la recarga de todos los datos
+				noScroll: false
 			});
+			
+			// Forzar actualización después de un momento
+			setTimeout(async () => {
+				try {
+					await invalidateAll();
+					console.log('✅ Navegación SvelteKit exitosa');
+				} catch (error) {
+					console.warn('⚠️ Error en invalidateAll:', error);
+				}
+			}, 100);
+			
 		} catch (error) {
-			console.error('Error en navegación:', error);
+			console.warn('⚠️ Método 1 falló, probando Método 2');
+			
+			try {
+				// Método 2: Navegación directa del navegador
+				console.log('📍 Método 2: window.location');
+				window.location.href = href;
+			} catch (error2) {
+				console.error('❌ Ambos métodos fallaron');
+				
+				// Método 3: Última opción - reload completo
+				console.log('📍 Método 3: reload + navigate');
+				setTimeout(() => {
+					window.location.href = href;
+				}, 500);
+			}
+		}
+	};
+
+	// Función para limpiar cachés y stores
+	const limpiarCaches = () => {
+		console.log('🧹 Limpiando cachés...');
+		
+		// Limpiar stores principales
+		try {
+			negocioActual.set(null);
+			movimientos.set([]);
+			productos.set([]);
+			clientes.set([]);
+			console.log('✅ Stores limpiados');
+		} catch (error) {
+			console.warn('⚠️ Error limpiando stores:', error);
 		}
 	};
 
@@ -189,17 +304,20 @@
 		<!-- Navegación principal -->
 		<nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
 			{#each elementosMenu as elemento}
-				<button
-					on:click={() => navegarA(elemento.href)}
-					class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 
+				<a
+					href={elemento.href}
+					class="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200
 						{esRutaActiva(elemento.href) 
-							? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-r-2 border-blue-600' 
-							: 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
-						}"
+							? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400' 
+							: 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}"
+					on:click={(e) => {
+						e.preventDefault();
+						navegarA(elemento.href);
+					}}
 				>
-					<svelte:component this={elemento.icono} class="w-5 h-5 mr-3 flex-shrink-0" />
-					{elemento.texto}
-				</button>
+					<svelte:component this={elemento.icono} class="w-5 h-5 flex-shrink-0" />
+					<span class="truncate">{elemento.texto}</span>
+				</a>
 			{/each}
 		</nav>
 
@@ -240,6 +358,21 @@
 					</div>
 					<span class="font-semibold text-gray-900 dark:text-white">Panel</span>
 				</div>
+
+				<!-- Botón de emergencia (solo visible en desarrollo) -->
+				{#if browser && window.location.hostname === 'localhost'}
+					<button
+						on:click={() => {
+							console.log('🚨 Forzando recarga completa');
+							limpiarCaches();
+							window.location.reload();
+						}}
+						class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+						title="Forzar Recarga (Solo Desarrollo)"
+					>
+						🔄
+					</button>
+				{/if}
 
 				<!-- Menú usuario móvil -->
 				<div class="relative">

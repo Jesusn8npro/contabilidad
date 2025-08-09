@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { derived } from 'svelte/store';
-	import type { Negocio, MovimientoFinanciero, TipoNegocio } from '$lib/tipos/app';
+	import type { Negocio, MovimientoFinanciero, TipoNegocio, EstadoTarea, PrioridadTarea } from '$lib/tipos/app';
 	import { TIPOS_NEGOCIO } from '$lib/tipos/app';
 	import { 
 		Building2, 
@@ -21,7 +21,14 @@
 		Users,
 		Settings,
 		User,
-		Save
+		Save,
+		Package,
+		UserCheck,
+		BarChart3,
+		Globe,
+		Mail,
+		MessageCircle,
+		Phone
 	} from 'lucide-svelte';
 	import { cargarNegocioPorSlug, negocioActual, cargandoNegocio, actualizarNegocio } from '$lib/stores/negocios';
 	import { 
@@ -32,11 +39,39 @@
 		cargarCategorias,
 		categorias 
 	} from '$lib/stores/movimientos';
+	import {
+		productos,
+		cargarProductos,
+		cargandoProductos
+	} from '$lib/stores/inventario';
+	import {
+		clientes,
+		cargarClientes,
+		cargandoClientes
+	} from '$lib/stores/clientes';
+	import {
+		tareas,
+		cargarTareasNegocio,
+		cargandoTareas,
+		crearTarea,
+		actualizarTarea,
+		eliminarTarea
+	} from '$lib/stores/proyectos';
+	// MARKETING IMPORTS AGREGADOS
+	import {
+		campañas,
+		cargarCampañas,
+		cargandoCampañas,
+		crearCampaña,
+		eliminarCampaña
+	} from '$lib/stores/marketing';
 	import Boton from '$lib/componentes/ui/Boton.svelte';
 	import Cargando from '$lib/componentes/ui/Cargando.svelte';
 	import FormularioMovimiento from '$lib/componentes/movimientos/FormularioMovimiento.svelte';
 	import Modal from '$lib/componentes/ui/Modal.svelte';
 	import TarjetaMovimiento from '$lib/componentes/movimientos/TarjetaMovimiento.svelte';
+	import KanbanTableroNegocios from '$lib/componentes/tareas/KanbanTableroNegocios.svelte';
+	import BotonWhatsApp from '$lib/componentes/ui/BotonWhatsApp.svelte';
 
 	// Params
 	let negocioSlug: string = '';
@@ -45,9 +80,19 @@
 	// Estado local
 	let modalMovimiento = false;
 	let tipoMovimiento: 'ingreso' | 'gasto' = 'ingreso';
-	let pestanaActiva: 'resumen' | 'movimientos' | 'configuracion' = 'resumen';
+	let pestanaActiva: 'resumen' | 'productos' | 'clientes' | 'movimientos' | 'tareas' | 'marketing' | 'configuracion' = 'resumen';
 	let guardandoConfiguracion = false;
 	let formularioInicializado = false; // 🔧 NUEVA VARIABLE PARA CONTROLAR INICIALIZACIÓN
+
+	// ESTADO PARA TAREAS - AGREGADO
+	let modalTarea = false;
+	let tareaEditando: any = null;
+	let formTarea = {
+		titulo: '',
+		descripcion: '',
+		estado: 'por-hacer' as EstadoTarea,
+		prioridad: 'media' as PrioridadTarea
+	};
 
 	// Formulario de configuración - Variables reactivas
 	let formularioConfig = {
@@ -57,6 +102,7 @@
 		moneda: 'USD',
 		website: '',
 		telefono: '',
+		whatsapp: '', // NUEVO CAMPO AGREGADO
 		email: '',
 		logo_url: '',
 		direccion: '',
@@ -75,6 +121,7 @@
 			moneda: $negocioActual.moneda || 'USD',
 			website: $negocioActual.website || '',
 			telefono: $negocioActual.telefono || '',
+			whatsapp: $negocioActual.whatsapp || '', // NUEVO CAMPO AGREGADO
 			email: $negocioActual.email || '',
 			logo_url: $negocioActual.logo_url || '',
 			direccion: $negocioActual.direccion || '',
@@ -86,9 +133,26 @@
 		formularioInicializado = true; // 🔥 MARCAR COMO INICIALIZADO
 	}
 
-	// Movimientos filtrados del negocio actual
+	// Datos filtrados del negocio actual
 	$: movimientosNegocio = $movimientos.filter(m => 
 		$negocioActual && m.negocio_id === $negocioActual.id
+	);
+	
+	$: productosNegocio = $productos.filter(p => 
+		$negocioActual && p.negocio_id === $negocioActual.id
+	);
+	
+	$: clientesNegocio = $clientes.filter(c => 
+		$negocioActual && c.negocio_id === $negocioActual.id
+	);
+	
+	$: tareasNegocio = $tareas.filter(t => 
+		$negocioActual && t.negocio_id === $negocioActual.id
+	);
+
+	// Campañas filtradas por negocio
+	$: campañasNegocio = $campañas.filter(c => 
+		$negocioActual && c.negocio_id === $negocioActual.id
 	);
 
 	// Estadísticas del negocio
@@ -100,6 +164,10 @@
 			.filter(m => m.tipo_movimiento === 'gasto')
 			.reduce((sum, m) => sum + m.monto, 0),
 		totalMovimientos: movimientosNegocio.length,
+		totalProductos: productosNegocio.length,
+		totalClientes: clientesNegocio.length,
+		totalCampañas: campañasNegocio.length,
+		valorInventario: productosNegocio.reduce((sum, p) => sum + (p.precio_venta * p.stock_actual), 0),
 		balance: 0
 	};
 	$: estadisticasNegocio.balance = estadisticasNegocio.totalIngresos - estadisticasNegocio.totalGastos;
@@ -118,8 +186,14 @@
 			await cargarCategorias();
 			
 			if ($negocioActual) {
-				// Cargar movimientos del negocio
-				await cargarMovimientos($negocioActual.id);
+				// Cargar todos los datos del negocio
+				await Promise.all([
+					cargarMovimientos($negocioActual.id),
+					cargarProductos($negocioActual.id),
+					cargarClientes($negocioActual.id),
+					cargarTareasNegocio($negocioActual.id),
+					cargarCampañas($negocioActual.id) // AGREGAR CARGA DE CAMPAÑAS
+				]);
 			}
 		} catch (error) {
 			console.error('Error cargando datos del negocio:', error);
@@ -143,22 +217,43 @@
 
 	const handleMovimientoCreado = async (event: CustomEvent<{ movimiento: Partial<MovimientoFinanciero> }>) => {
 		try {
-			console.log('🚀 Creando movimiento:', event.detail.movimiento);
+			console.log('🚀 Evento recibido:', event.detail);
+			console.log('📝 Datos del movimiento:', event.detail.movimiento);
 			
 			if (!$negocioActual) {
-				console.error('No hay negocio actual');
+				console.error('❌ No hay negocio actual');
+				alert('Error: No hay negocio seleccionado');
+				return;
+			}
+
+			// Validar datos básicos antes de enviar
+			const movimientoData = event.detail.movimiento;
+			
+			if (!movimientoData.descripcion || movimientoData.descripcion.trim() === '') {
+				console.error('❌ Descripción vacía');
+				alert('Error: La descripción es requerida');
+				return;
+			}
+			
+			if (!movimientoData.monto || movimientoData.monto <= 0) {
+				console.error('❌ Monto inválido:', movimientoData.monto);
+				alert('Error: El monto debe ser mayor a 0');
 				return;
 			}
 
 			// Preparar datos del movimiento
 			const datosMovimiento = {
-				...event.detail.movimiento,
 				negocio_id: $negocioActual.id,
-				// Asegurar que tipo_movimiento esté establecido
-				tipo_movimiento: event.detail.movimiento.tipo_movimiento || tipoMovimiento
+				tipo_movimiento: movimientoData.tipo_movimiento || tipoMovimiento,
+				monto: Number(movimientoData.monto),
+				descripcion: movimientoData.descripcion.trim(),
+				fecha_movimiento: movimientoData.fecha_movimiento || new Date().toISOString().split('T')[0],
+				categoria_id: movimientoData.categoria_id || undefined,
+				metodo_pago: movimientoData.metodo_pago || 'efectivo',
+				notas: movimientoData.notas || undefined
 			};
 
-			console.log('📝 Datos finales del movimiento:', datosMovimiento);
+			console.log('📋 Datos finales a enviar:', datosMovimiento);
 			
 			// Crear el movimiento
 			const movimientoCreado = await crearMovimiento(datosMovimiento);
@@ -169,11 +264,16 @@
 				
 				// Recargar movimientos para actualizar la UI
 				await cargarMovimientos($negocioActual.id);
+				
+				// Mostrar mensaje de éxito
+				alert('¡Movimiento creado exitosamente!');
 			} else {
-				console.error('❌ Error al crear movimiento');
+				console.error('❌ Error: crearMovimiento retornó null');
+				alert('Error al crear el movimiento. Revisa la consola para más detalles.');
 			}
 		} catch (error) {
 			console.error('💥 Error en handleMovimientoCreado:', error);
+			alert(`Error inesperado: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	};
 
@@ -224,6 +324,7 @@
 				moneda: $negocioActual.moneda || 'USD',
 				website: $negocioActual.website || '',
 				telefono: $negocioActual.telefono || '',
+				whatsapp: $negocioActual.whatsapp || '', // NUEVO CAMPO AGREGADO
 				email: $negocioActual.email || '',
 				logo_url: $negocioActual.logo_url || '',
 				direccion: $negocioActual.direccion || '',
@@ -251,6 +352,96 @@
 			'otro': '🏢'
 		};
 		return iconos[tipo] || '🏢';
+	};
+
+	// HANDLERS PARA TAREAS - AGREGADOS
+	const abrirModalTarea = (estado = 'por-hacer') => {
+		tareaEditando = null;
+		formTarea = {
+			titulo: '',
+			descripcion: '',
+			estado: estado as any,
+			prioridad: 'media' as any
+		};
+		modalTarea = true;
+	};
+
+	const editarTarea = (tarea: any) => {
+		tareaEditando = tarea;
+		formTarea = {
+			titulo: tarea.titulo || '',
+			descripcion: tarea.descripcion || '',
+			estado: tarea.estado || 'por-hacer' as any,
+			prioridad: tarea.prioridad || 'media' as any
+		};
+		modalTarea = true;
+	};
+
+	const handleGuardarTarea = async (event?: any) => {
+		if (!$negocioActual) return;
+
+		// Validación básica
+		if (!formTarea.titulo.trim()) {
+			alert('El título es obligatorio');
+			return;
+		}
+
+		try {
+			const datosTarea = {
+				titulo: formTarea.titulo.trim(),
+				descripcion: formTarea.descripcion.trim() || undefined,
+				estado: formTarea.estado as any,
+				prioridad: formTarea.prioridad as any,
+				negocio_id: $negocioActual.id
+			};
+
+			if (tareaEditando) {
+				// Actualizar tarea existente
+				await actualizarTarea(tareaEditando.id, datosTarea);
+			} else {
+				// Crear nueva tarea
+				await crearTarea(datosTarea);
+			}
+
+			// Recargar tareas
+			if ($negocioActual) {
+				await cargarTareasNegocio($negocioActual.id);
+			}
+			
+			// Cerrar modal
+			modalTarea = false;
+			tareaEditando = null;
+
+		} catch (error) {
+			console.error('Error al guardar tarea:', error);
+			alert('Error al guardar la tarea');
+		}
+	};
+
+	const handleEliminarTarea = async (tarea: any) => {
+		if (!confirm(`¿Estás seguro de eliminar la tarea "${tarea.titulo}"?`)) return;
+
+		try {
+			await eliminarTarea(tarea.id);
+			if ($negocioActual) {
+				await cargarTareasNegocio($negocioActual.id);
+			}
+		} catch (error) {
+			console.error('Error al eliminar tarea:', error);
+			alert('Error al eliminar la tarea');
+		}
+	};
+
+	const handleMoverTarea = async (tarea: any, nuevoEstado: any) => {
+		try {
+			await actualizarTarea(tarea.id, { estado: nuevoEstado });
+			if ($negocioActual) {
+				await cargarTareasNegocio($negocioActual.id);
+			}
+		} catch (error) {
+			console.error('Error al mover tarea:', error);
+			alert('Error al mover la tarea');
+		}
 	};
 </script>
 
@@ -302,12 +493,46 @@
 								<p class="text-sm text-gray-600 dark:text-gray-400 capitalize truncate">
 									{TIPOS_NEGOCIO[$negocioActual.tipo_negocio]} • {$negocioActual.moneda}
 								</p>
+								<!-- Información de contacto -->
+								{#if $negocioActual.whatsapp || $negocioActual.telefono || $negocioActual.email}
+									<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+										{#if $negocioActual.whatsapp}
+											<div class="flex items-center gap-1">
+												<MessageCircle class="w-3 h-3 text-green-500" />
+												<span>{$negocioActual.whatsapp}</span>
+											</div>
+										{/if}
+										{#if $negocioActual.telefono && $negocioActual.telefono !== $negocioActual.whatsapp}
+											<div class="flex items-center gap-1">
+												<Phone class="w-3 h-3" />
+												<span>{$negocioActual.telefono}</span>
+											</div>
+										{/if}
+										{#if $negocioActual.email}
+											<div class="flex items-center gap-1">
+												<Mail class="w-3 h-3" />
+												<span class="truncate max-w-40">{$negocioActual.email}</span>
+											</div>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>
 
 					<!-- Sección derecha: Botones de acción -->
 					<div class="flex flex-col sm:flex-row gap-2 sm:gap-3 lg:gap-4 flex-shrink-0">
+						<!-- Botón WhatsApp - Solo si tiene WhatsApp configurado -->
+						{#if $negocioActual.whatsapp}
+							<BotonWhatsApp
+								numero={$negocioActual.whatsapp}
+								mensaje="Hola! Me interesa información sobre {$negocioActual.nombre}"
+								texto="💬 WhatsApp"
+								tamaño="sm"
+								variante="outline"
+							/>
+						{/if}
+
 						<!-- Botón Nuevo Gasto - Responsivo -->
 						<button
 							on:click={() => handleNuevoMovimiento('gasto')}
@@ -346,15 +571,59 @@
 						Resumen
 					</button>
 					<button
-						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'movimientos' 
+						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'productos' 
 							? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+							: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
+						on:click={() => pestanaActiva = 'productos'}
+					>
+						<Package class="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+						<span class="hidden sm:inline">Productos</span>
+						<span class="sm:hidden">Prod.</span>
+						({productosNegocio.length})
+					</button>
+					<button
+						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'clientes' 
+							? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+							: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
+						on:click={() => pestanaActiva = 'clientes'}
+					>
+						<UserCheck class="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+						<span class="hidden sm:inline">Clientes</span>
+						<span class="sm:hidden">Cli.</span>
+						({clientesNegocio.length})
+					</button>
+					<button
+						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'movimientos' 
+							? 'border-green-500 text-green-600 dark:text-green-400' 
 							: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
 						on:click={() => pestanaActiva = 'movimientos'}
 					>
 						<DollarSign class="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-						<span class="hidden sm:inline">Movimientos</span>
-						<span class="sm:hidden">Mov.</span>
+						<span class="hidden sm:inline">💰 Ventas e Ingresos</span>
+						<span class="sm:hidden">💰 Ventas</span>
 						({movimientosNegocio.length})
+					</button>
+					<button
+						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'tareas' 
+							? 'border-purple-500 text-purple-600 dark:text-purple-400' 
+							: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
+						on:click={() => pestanaActiva = 'tareas'}
+					>
+						<Calendar class="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+						<span class="hidden sm:inline">📋 Tareas</span>
+						<span class="sm:hidden">📋 Tareas</span>
+						({tareasNegocio.length})
+					</button>
+					<button
+						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'marketing' 
+							? 'border-yellow-500 text-yellow-600 dark:text-yellow-400' 
+							: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
+						on:click={() => pestanaActiva = 'marketing'}
+					>
+						<BarChart3 class="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+						<span class="hidden sm:inline">📊 Marketing</span>
+						<span class="sm:hidden">📊 Mkt</span>
+						({$cargandoCampañas ? '...' : campañasNegocio.length})
 					</button>
 					<button
 						class="py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap {pestanaActiva === 'configuracion' 
@@ -375,7 +644,7 @@
 			<div class="p-4 sm:p-6 max-w-full overflow-hidden">
 				{#if pestanaActiva === 'resumen'}
 					<!-- Métricas principales -->
-					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 mb-6 sm:mb-8">
 						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
 							<div class="flex items-center">
 								<div class="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
@@ -431,6 +700,34 @@
 								</div>
 							</div>
 						</div>
+
+						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+							<div class="flex items-center">
+								<div class="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex-shrink-0">
+									<Package class="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
+								</div>
+								<div class="ml-3 sm:ml-4 min-w-0 flex-1">
+									<p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">Productos</p>
+									<p class="text-lg sm:text-2xl font-bold text-orange-600 dark:text-orange-400">
+										{estadisticasNegocio.totalProductos}
+									</p>
+								</div>
+							</div>
+						</div>
+
+						<div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+							<div class="flex items-center">
+								<div class="p-2 bg-pink-100 dark:bg-pink-900/20 rounded-lg flex-shrink-0">
+									<UserCheck class="w-5 h-5 sm:w-6 sm:h-6 text-pink-600 dark:text-pink-400" />
+								</div>
+								<div class="ml-3 sm:ml-4 min-w-0 flex-1">
+									<p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">Clientes</p>
+									<p class="text-lg sm:text-2xl font-bold text-pink-600 dark:text-pink-400">
+										{estadisticasNegocio.totalClientes}
+									</p>
+								</div>
+							</div>
+						</div>
 					</div>
 
 					<!-- Información del negocio -->
@@ -454,6 +751,241 @@
 						</div>
 					</div>
 
+				{:else if pestanaActiva === 'productos'}
+					<!-- Sección de Productos -->
+					<div class="space-y-6">
+						<!-- Header con botón de acción -->
+						<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+							<div>
+								<h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+									Productos de {$negocioActual.nombre}
+								</h3>
+								<p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+									Gestiona el inventario de productos de este negocio
+								</p>
+							</div>
+							<Boton
+								variant="gradient"
+								size="md"
+								icon={Plus}
+								on:click={() => goto('/panel/inventario')}
+							>
+								Agregar Producto
+							</Boton>
+						</div>
+
+						{#if $cargandoProductos}
+							<div class="flex items-center justify-center py-12">
+								<Cargando />
+							</div>
+						{:else if productosNegocio.length === 0}
+							<div class="text-center py-12 px-4">
+								<Package class="w-16 h-16 mx-auto text-gray-400 mb-4" />
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+									No hay productos
+								</h3>
+								<p class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+									Comienza agregando productos para gestionar el inventario de este negocio.
+								</p>
+								<Boton
+									variant="primary"
+									size="lg"
+									icon={Plus}
+									on:click={() => goto('/panel/inventario')}
+								>
+									Crear Primer Producto
+								</Boton>
+							</div>
+						{:else}
+							<!-- Lista de productos -->
+							<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+								{#each productosNegocio as producto (producto.id)}
+									<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow">
+										<div class="flex items-center justify-between mb-4">
+											<div class="flex items-center space-x-3">
+												<div class="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+													<Package class="w-5 h-5 text-blue-600 dark:text-blue-400" />
+												</div>
+												<div>
+													<h4 class="font-semibold text-gray-900 dark:text-white">
+														{producto.nombre}
+													</h4>
+													<p class="text-sm text-gray-500 dark:text-gray-400">
+														{producto.codigo}
+													</p>
+												</div>
+											</div>
+											<span class="px-2 py-1 text-xs font-medium rounded-full {
+												producto.estado === 'activo' 
+													? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+													: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+											}">
+												{producto.estado}
+											</span>
+										</div>
+										
+										<div class="space-y-3">
+											<div class="flex justify-between text-sm">
+												<span class="text-gray-600 dark:text-gray-400">Precio:</span>
+												<span class="font-medium text-gray-900 dark:text-white">
+													{formatearMoneda(producto.precio_venta, $negocioActual.moneda)}
+												</span>
+											</div>
+											
+											<div class="flex justify-between text-sm">
+												<span class="text-gray-600 dark:text-gray-400">Stock:</span>
+												<span class="font-medium {producto.stock_actual <= producto.stock_minimo ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}">
+													{producto.stock_actual} {producto.unidad_medida}
+													{#if producto.stock_actual <= producto.stock_minimo}
+														<span class="text-xs text-red-500 ml-1">(Bajo)</span>
+													{/if}
+												</span>
+											</div>
+											
+											{#if producto.descripcion}
+												<p class="text-sm text-gray-600 dark:text-gray-400 truncate">
+													{producto.descripcion}
+												</p>
+											{/if}
+										</div>
+									</div>
+								{/each}
+							</div>
+							
+							<div class="text-center pt-6">
+								<Boton
+									variant="outline"
+									on:click={() => goto('/panel/inventario')}
+								>
+									Ver Todos los Productos
+								</Boton>
+							</div>
+						{/if}
+					</div>
+
+				{:else if pestanaActiva === 'clientes'}
+					<!-- Sección de Clientes -->
+					<div class="space-y-6">
+						<!-- Header con botón de acción -->
+						<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+							<div>
+								<h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+									Clientes de {$negocioActual.nombre}
+								</h3>
+								<p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+									Administra la base de datos de clientes de este negocio
+								</p>
+							</div>
+							<Boton
+								variant="success"
+								size="md"
+								icon={Plus}
+								on:click={() => goto('/panel/clientes')}
+							>
+								Agregar Cliente
+							</Boton>
+						</div>
+
+						{#if $cargandoClientes}
+							<div class="flex items-center justify-center py-12">
+								<Cargando />
+							</div>
+						{:else if clientesNegocio.length === 0}
+							<div class="text-center py-12 px-4">
+								<UserCheck class="w-16 h-16 mx-auto text-gray-400 mb-4" />
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+									No hay clientes
+								</h3>
+								<p class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+									Comienza agregando clientes para gestionar las relaciones comerciales de este negocio.
+								</p>
+								<Boton
+									variant="primary"
+									size="lg"
+									icon={Plus}
+									on:click={() => goto('/panel/clientes')}
+								>
+									Agregar Primer Cliente
+								</Boton>
+							</div>
+						{:else}
+							<!-- Lista de clientes -->
+							<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+								{#each clientesNegocio as cliente (cliente.id)}
+									<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow">
+										<div class="flex items-center justify-between mb-4">
+											<div class="flex items-center space-x-3">
+												<div class="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+													<UserCheck class="w-5 h-5 text-green-600 dark:text-green-400" />
+												</div>
+												<div>
+													<h4 class="font-semibold text-gray-900 dark:text-white">
+														{cliente.nombre}
+													</h4>
+													<p class="text-sm text-gray-500 dark:text-gray-400 capitalize">
+														{cliente.tipo_cliente}
+													</p>
+												</div>
+											</div>
+											<span class="px-2 py-1 text-xs font-medium rounded-full {
+												cliente.estado === 'activo' 
+													? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+													: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+											}">
+												{cliente.estado}
+											</span>
+										</div>
+										
+										<div class="space-y-3">
+											{#if cliente.email}
+												<div class="flex justify-between text-sm">
+													<span class="text-gray-600 dark:text-gray-400">Email:</span>
+													<span class="font-medium text-gray-900 dark:text-white truncate">
+														{cliente.email}
+													</span>
+												</div>
+											{/if}
+											
+											{#if cliente.telefono}
+												<div class="flex justify-between text-sm">
+													<span class="text-gray-600 dark:text-gray-400">Teléfono:</span>
+													<span class="font-medium text-gray-900 dark:text-white">
+														{cliente.telefono}
+													</span>
+												</div>
+											{/if}
+											
+											<div class="flex justify-between text-sm">
+												<span class="text-gray-600 dark:text-gray-400">Documento:</span>
+												<span class="font-medium text-gray-900 dark:text-white">
+													{cliente.numero_documento}
+												</span>
+											</div>
+											
+											{#if cliente.limite_credito > 0}
+												<div class="flex justify-between text-sm">
+													<span class="text-gray-600 dark:text-gray-400">Límite crédito:</span>
+													<span class="font-medium text-gray-900 dark:text-white">
+														{formatearMoneda(cliente.limite_credito, $negocioActual.moneda)}
+													</span>
+												</div>
+											{/if}
+										</div>
+									</div>
+								{/each}
+							</div>
+							
+							<div class="text-center pt-6">
+								<Boton
+									variant="outline"
+									on:click={() => goto('/panel/clientes')}
+								>
+									Ver Todos los Clientes
+								</Boton>
+							</div>
+						{/if}
+					</div>
+
 				{:else if pestanaActiva === 'movimientos'}
 					<!-- Lista de movimientos -->
 					<div class="space-y-3 sm:space-y-4">
@@ -472,18 +1004,19 @@
 								</p>
 								<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 max-w-sm sm:max-w-none mx-auto">
 									<Boton
-										variante="secondary"
+										variant="secondary"
+										icon={TrendingDown}
 										on:click={() => handleNuevoMovimiento('gasto')}
-										clase="w-full sm:w-auto"
+										class="w-full sm:w-auto"
 									>
-										<TrendingDown class="w-4 h-4 mr-2" />
 										Nuevo Gasto
 									</Boton>
 									<Boton
+										variant="primary"
+										icon={TrendingUp}
 										on:click={() => handleNuevoMovimiento('ingreso')}
-										clase="w-full sm:w-auto"
+										class="w-full sm:w-auto"
 									>
-										<TrendingUp class="w-4 h-4 mr-2" />
 										Nuevo Ingreso
 									</Boton>
 								</div>
@@ -499,6 +1032,219 @@
 										/>
 									</div>
 								{/each}
+							</div>
+						{/if}
+					</div>
+
+				{:else if pestanaActiva === 'tareas'}
+					<!-- Gestión de Tareas del Negocio -->
+					<div class="space-y-6">
+						<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+							<div>
+								<h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+									📋 Tareas de {$negocioActual?.nombre}
+								</h2>
+								<p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+									Gestiona las tareas y actividades de este negocio
+								</p>
+							</div>
+							<div class="text-sm text-gray-500 dark:text-gray-400">
+								{tareasNegocio.length} {tareasNegocio.length === 1 ? 'tarea' : 'tareas'}
+							</div>
+						</div>
+
+						<!-- Componente Kanban de Tareas -->
+						{#if $negocioActual}
+							<KanbanTableroNegocios 
+								tareas={tareasNegocio}
+								negocioId={$negocioActual.id}
+								cargandoTareas={$cargandoTareas}
+								on:crear-tarea={(e) => abrirModalTarea(e.detail.estado)}
+								on:editar-tarea={(e) => editarTarea(e.detail.tarea)}
+								on:eliminar-tarea={(e) => handleEliminarTarea(e.detail.tarea)}
+								on:mover-tarea={(e) => handleMoverTarea(e.detail.tarea, e.detail.nuevoEstado)}
+								on:tarea-actualizada={async () => {
+									if ($negocioActual) {
+										await cargarTareasNegocio($negocioActual.id);
+									}
+								}}
+							/>
+						{:else}
+							<div class="text-center py-8">
+								<Cargando />
+							</div>
+						{/if}
+					</div>
+
+				{:else if pestanaActiva === 'marketing'}
+					<!-- Gestión de Campañas de Marketing -->
+					<div class="space-y-6">
+						<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+							<div>
+								<h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+									📊 Campañas de Marketing de {$negocioActual?.nombre}
+								</h2>
+								<p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+									Administra y monitorea las campañas de marketing de tu negocio.
+								</p>
+							</div>
+							<div class="text-sm text-gray-500 dark:text-gray-400">
+								{$cargandoCampañas ? 'Cargando campañas...' : campañasNegocio.length} {(campañasNegocio.length === 1 ? 'campaña' : 'campañas')}
+							</div>
+						</div>
+
+						{#if $cargandoCampañas}
+							<div class="text-center py-8">
+								<Cargando />
+							</div>
+						{:else if campañasNegocio.length === 0}
+							<!-- Estado vacío -->
+							<div class="text-center py-12">
+								<BarChart3 class="w-16 h-16 mx-auto text-gray-400 mb-4" />
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+									No hay campañas de marketing
+								</h3>
+								<p class="text-gray-600 dark:text-gray-400 mb-6">
+									Crea tu primera campaña para promocionar tu negocio.
+								</p>
+								<Boton
+									variant="primary"
+									size="md"
+									icon={Plus}
+									on:click={() => goto('/panel/marketing')}
+								>
+									Crear Primera Campaña
+								</Boton>
+							</div>
+						{:else}
+							<!-- Lista de Campañas -->
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+								{#each campañasNegocio as campaña (campaña.id)}
+									<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
+										<div class="p-6">
+											<!-- Header de la campaña -->
+											<div class="flex items-start justify-between mb-4">
+												<div class="flex-1">
+													<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+														{campaña.nombre}
+													</h3>
+													<div class="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+														<span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+															{campaña.tipo_campana}
+														</span>
+														{#if campaña.plataforma}
+															<span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs">
+																{campaña.plataforma}
+															</span>
+														{/if}
+													</div>
+												</div>
+												<div class="flex items-center space-x-1">
+													<div class="w-3 h-3 rounded-full {
+														campaña.estado === 'activa' ? 'bg-green-500' :
+														campaña.estado === 'pausada' ? 'bg-yellow-500' :
+														'bg-gray-400'
+													}"></div>
+													<span class="text-xs font-medium text-gray-600 dark:text-gray-400 capitalize">
+														{campaña.estado}
+													</span>
+												</div>
+											</div>
+
+											<!-- Descripción -->
+											{#if campaña.descripcion}
+												<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+													{campaña.descripcion}
+												</p>
+											{/if}
+
+											<!-- Métricas principales -->
+											<div class="grid grid-cols-2 gap-4 mb-4">
+												<div class="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+													<p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Presupuesto</p>
+													<p class="text-lg font-bold text-green-600 dark:text-green-400">
+														${campaña.presupuesto_total.toLocaleString()}
+													</p>
+												</div>
+												<div class="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+													<p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Gastado</p>
+													<p class="text-lg font-bold text-red-600 dark:text-red-400">
+														${(campaña.gastado_actual || 0).toLocaleString()}
+													</p>
+												</div>
+											</div>
+
+											<!-- Métricas de rendimiento -->
+											{#if campaña.impresiones || campaña.clics || campaña.conversiones}
+												<div class="grid grid-cols-3 gap-2 mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+													<div class="text-center">
+														<p class="text-xs text-blue-600 dark:text-blue-400 mb-1">Impresiones</p>
+														<p class="text-sm font-semibold text-blue-700 dark:text-blue-300">
+															{(campaña.impresiones || 0).toLocaleString()}
+														</p>
+													</div>
+													<div class="text-center">
+														<p class="text-xs text-blue-600 dark:text-blue-400 mb-1">Clics</p>
+														<p class="text-sm font-semibold text-blue-700 dark:text-blue-300">
+															{(campaña.clics || 0).toLocaleString()}
+														</p>
+													</div>
+													<div class="text-center">
+														<p class="text-xs text-blue-600 dark:text-blue-400 mb-1">Conversiones</p>
+														<p class="text-sm font-semibold text-blue-700 dark:text-blue-300">
+															{campaña.conversiones || 0}
+														</p>
+													</div>
+												</div>
+											{/if}
+
+											<!-- Fechas -->
+											<div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-4">
+												<span>Inicio: {new Date(campaña.fecha_inicio).toLocaleDateString()}</span>
+												{#if campaña.fecha_fin}
+													<span>Fin: {new Date(campaña.fecha_fin).toLocaleDateString()}</span>
+												{/if}
+											</div>
+
+											<!-- Acciones -->
+											<div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-600">
+												<span class="text-xs text-gray-500 dark:text-gray-400">
+													Creada: {new Date(campaña.fecha_creacion).toLocaleDateString()}
+												</span>
+												<div class="flex space-x-2">
+													<button 
+														class="px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+														on:click={() => goto('/panel/marketing')}
+													>
+														Ver Detalles
+													</button>
+												</div>
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+
+							<!-- Acción para crear nueva campaña -->
+							<div class="flex flex-col sm:flex-row gap-4">
+								<Boton
+									variant="primary"
+									size="md"
+									icon={Plus}
+									on:click={() => goto('/panel/marketing')}
+									class="flex-1 sm:flex-initial"
+								>
+									Nueva Campaña
+								</Boton>
+								<Boton
+									variant="outline"
+									size="md"
+									icon={BarChart3}
+									on:click={() => goto('/panel/marketing')}
+									class="flex-1 sm:flex-initial"
+								>
+									Ver Todas las Campañas
+								</Boton>
 							</div>
 						{/if}
 					</div>
@@ -604,6 +1350,19 @@
 									<input
 										type="tel"
 										bind:value={formularioConfig.telefono}
+										class="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+										placeholder="+57 300 123 4567"
+									/>
+								</div>
+
+								<!-- Whatsapp -->
+								<div>
+									<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+										WhatsApp
+									</label>
+									<input
+										type="tel"
+										bind:value={formularioConfig.whatsapp}
 										class="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
 										placeholder="+57 300 123 4567"
 									/>
@@ -781,6 +1540,93 @@
 				on:guardar={handleMovimientoCreado}
 				on:cancelar={() => modalMovimiento = false}
 			/>
+		</Modal>
+
+		<!-- Modal para tareas -->
+		<Modal bind:abierto={modalTarea} titulo="{tareaEditando ? 'Editar' : 'Nueva'} Tarea">
+			<form on:submit|preventDefault={handleGuardarTarea} class="space-y-4">
+				<!-- Título -->
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Título *
+					</label>
+					<input
+						type="text"
+						bind:value={formTarea.titulo}
+						placeholder="Nombre de la tarea"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+						required
+					/>
+				</div>
+				
+				<!-- Descripción -->
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Descripción
+					</label>
+					<textarea
+						bind:value={formTarea.descripcion}
+						placeholder="Detalles de la tarea..."
+						rows="3"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+					></textarea>
+				</div>
+				
+				<!-- Estado y Prioridad -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div>
+						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+							Estado
+						</label>
+						<select 
+							bind:value={formTarea.estado} 
+							class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+						>
+							<option value="por-hacer">📋 Por Hacer</option>
+							<option value="en-progreso">🔄 En Progreso</option>
+							<option value="en-revision">👀 En Revisión</option>
+							<option value="completada">✅ Completada</option>
+						</select>
+					</div>
+					
+					<div>
+						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+							Prioridad
+						</label>
+						<select 
+							bind:value={formTarea.prioridad} 
+							class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+						>
+							<option value="baja">🟢 Baja</option>
+							<option value="media">🟡 Media</option>
+							<option value="alta">🟠 Alta</option>
+							<option value="urgente">🔴 Urgente</option>
+						</select>
+					</div>
+				</div>
+				
+				<!-- Botones -->
+				<div class="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+					<button
+						type="button"
+						on:click={() => {
+							modalTarea = false;
+							tareaEditando = null;
+						}}
+						class="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium w-full sm:w-auto"
+					>
+						Cancelar
+					</button>
+					<button
+						type="submit"
+						class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+						disabled={!formTarea.titulo.trim()}
+					>
+						<Plus class="w-4 h-4" />
+						{tareaEditando ? 'Actualizar' : 'Crear'} Tarea
+					</button>
+				</div>
+			</form>
 		</Modal>
 	</div>
 {/if} 

@@ -66,16 +66,21 @@
 	const handleMoverTarea = async (event: CustomEvent<{ tarea: Tarea; nuevoEstado: EstadoTarea; nuevoOrden: number }>) => {
 		const { tarea, nuevoEstado, nuevoOrden } = event.detail;
 		
-		console.log('🎯🎯🎯 HANDLER PÁGINA PRINCIPAL');
+		console.log('��🎯🎯 HANDLER PÁGINA PROYECTO INDIVIDUAL');
 		console.log(`📤 Moviendo: "${tarea.titulo}" → ${nuevoEstado}`);
+		console.log('📋 Evento completo:', event.detail);
 		
 		// Llamar al store
 		const exito = await moverTarea(tarea.id, nuevoEstado, nuevoOrden);
 		
 		if (exito) {
-			console.log('🎉 ¡ÉXITO TOTAL! Tarea movida');
+			console.log('🎉 ¡ÉXITO TOTAL! Tarea movida en proyecto individual');
+			// Recargar las tareas para asegurar que se vean los cambios
+			if ($proyectoActual) {
+				await cargarTareasProyecto($proyectoActual.id);
+			}
 		} else {
-			console.error('❌ Error al mover tarea');
+			console.error('❌ Error al mover tarea en proyecto individual');
 		}
 	};
 

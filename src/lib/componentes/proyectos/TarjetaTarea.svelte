@@ -1,68 +1,60 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import type { Tarea } from '$lib/tipos/app';
-	import { ESTADOS_TAREA, PRIORIDADES_TAREA } from '$lib/tipos/app';
-	import { formatearFechaRelativa } from '$lib/utils/formato-fecha';
+	import { ChevronDown, Edit, Trash2 } from 'lucide-svelte';
 
 	// Props
 	export let tarea: Tarea;
 	export let draggable = true;
-	export let compacta = false;
-	export let isDragging = false;
+	export let mostrarSelectorEstado = true;
 
-	// Event dispatcher
-	const dispatch = createEventDispatcher<{
-		click: { tarea: Tarea };
-		editar: { tarea: Tarea };
-		eliminar: { tarea: Tarea };
-		cambiarPrioridad: { tarea: Tarea; prioridad: string };
-		dobleClic: { tarea: Tarea }; // 🔥 NUEVO EVENTO DE DOBLE CLIC
-	}>();
+	// Dispatcher
+	const dispatch = createEventDispatcher();
 
-	// Variables para doble clic
-	let clicTimeout: NodeJS.Timeout;
-	let clicCount = 0;
+	// Variables para el drag & drop
+	let isDragging = false;
 
-	// Datos derivados
-	$: estadoInfo = ESTADOS_TAREA[tarea.estado];
-	$: prioridadInfo = PRIORIDADES_TAREA[tarea.prioridad];
-	$: esFechaLimiteProxima = tarea.fecha_limite ? 
-		new Date(tarea.fecha_limite).getTime() - Date.now() < 3 * 24 * 60 * 60 * 1000 : false;
-	$: esFechaLimiteVencida = tarea.fecha_limite ? 
-		new Date(tarea.fecha_limite).getTime() < Date.now() : false;
+	// Variables para control del dropdown
+	let mostrarDropdown = false;
+	let dropdownButton: HTMLElement;
+	let abrirHaciaArriba = false;
 
-	// Clases dinámicas para prioridad
-	$: clasesPrioridad = {
-		'baja': 'border-l-gray-400',
-		'media': 'border-l-blue-400', 
-		'alta': 'border-l-orange-400',
-		'urgente': 'border-l-red-400'
-	};
-	
-	$: claseActualPrioridad = clasesPrioridad[tarea.prioridad as keyof typeof clasesPrioridad] || 'border-l-gray-400';
+	// Estados disponibles para el dropdown
+	const estadosDisponibles = [
+		{ id: 'por-hacer', label: 'Por Hacer', icon: '📋', color: 'text-gray-600' },
+		{ id: 'en-progreso', label: 'En Progreso', icon: '🔄', color: 'text-blue-600' },
+		{ id: 'en-revision', label: 'En Revisión', icon: '👀', color: 'text-yellow-600' },
+		{ id: 'completada', label: 'Completada', icon: '✅', color: 'text-green-600' }
+	];
 
-	// Handlers
-	const handleClick = () => {
-		if (!isDragging) {
-			clicCount++;
-			
-			// Si es el primer clic, esperar por un segundo clic
-			if (clicCount === 1) {
-				clicTimeout = setTimeout(() => {
-					// Solo fue un clic simple
-					dispatch('click', { tarea });
-					clicCount = 0;
-				}, 300); // Esperar 300ms para detectar doble clic
-			} else if (clicCount === 2) {
-				// Es doble clic
-				clearTimeout(clicTimeout);
-				dispatch('dobleClic', { tarea });
-				dispatch('editar', { tarea }); // 🔥 ABRIR EDITOR EN DOBLE CLIC
-				clicCount = 0;
-			}
-		}
+	// Estado actual
+	$: estadoActual = estadosDisponibles.find(e => e.id === tarea.estado) || estadosDisponibles[0];
+
+	// Función para calcular si debe abrir hacia arriba
+	const calcularDireccionDropdown = () => {
+		if (!dropdownButton) return;
+		
+		const rect = dropdownButton.getBoundingClientRect();
+		const windowHeight = window.innerHeight;
+		const dropdownHeight = 200; // altura estimada del dropdown
+		const espacioAbajo = windowHeight - rect.bottom;
+		const espacioArriba = rect.top;
+		
+		// Si no hay espacio suficiente abajo, abrir hacia arriba
+		abrirHaciaArriba = espacioAbajo < dropdownHeight && espacioArriba > dropdownHeight;
+		
+		console.log('🔍 POSICIONAMIENTO:', {
+			espacioAbajo,
+			espacioArriba,
+			dropdownHeight,
+			abrirHaciaArriba,
+			rectBottom: rect.bottom,
+			rectTop: rect.top,
+			windowHeight
+		});
 	};
 
+	// Handlers básicos
 	const handleEditar = (e: Event) => {
 		e.stopPropagation();
 		dispatch('editar', { tarea });
@@ -72,109 +64,130 @@
 		e.stopPropagation();
 		dispatch('eliminar', { tarea });
 	};
+
+	const handleCambiarEstado = (nuevoEstado: string, e: Event) => {
+		e.stopPropagation();
+		mostrarDropdown = false;
+		dispatch('cambiarEstado', { tarea, estado: nuevoEstado });
+	};
+
+	const handleToggleDropdown = (event: Event) => {
+		event.stopPropagation();
+		
+		if (!mostrarDropdown) {
+			// Calcular dirección antes de mostrar
+			calcularDireccionDropdown();
+		}
+		
+		console.log('🔍 DEBUG DROPDOWN:', { 
+			mostrarDropdown, 
+			willBe: !mostrarDropdown,
+			abrirHaciaArriba 
+		});
+		
+		mostrarDropdown = !mostrarDropdown;
+	};
 </script>
 
-<!-- Tarjeta de Tarea Draggable -->
-<div
-	class="relative bg-white dark:bg-gray-800 rounded-lg border-l-4 {claseActualPrioridad} shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer {isDragging ? 'opacity-50 scale-105 rotate-2 z-50' : ''} {draggable ? 'hover:scale-[1.02]' : ''}"
-	class:border-red-500={esFechaLimiteVencida}
-	class:border-orange-400={esFechaLimiteProxima && !esFechaLimiteVencida}
-	{draggable}
-	on:click={handleClick}
-	on:keydown={(e) => e.key === 'Enter' && handleClick()}
-	role="button"
-	tabindex="0"
-	data-tarea-id={tarea.id}
->
-	<!-- Contenido de la tarjeta -->
-	<div class="p-4">
-		<!-- Header con título y acciones -->
-		<div class="flex items-start justify-between mb-3">
-			<h4 class="font-medium text-gray-900 dark:text-white text-sm leading-tight {compacta ? 'line-clamp-1' : 'line-clamp-2'}">
-				{tarea.titulo}
-			</h4>
+<!-- Tarjeta de Tarea -->
+<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-all duration-200 relative">
+	<!-- Header con título y acciones -->
+	<div class="flex items-start justify-between mb-2">
+		<h4 class="font-medium text-gray-900 dark:text-white line-clamp-2 flex-1 pr-2">
+			{tarea.titulo}
+		</h4>
+		
+		<!-- Acciones -->
+		<div class="flex items-center space-x-1 flex-shrink-0">
+			<!-- Botón editar -->
+			<button
+				class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors opacity-0 group-hover:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+				on:click={handleEditar}
+				title="Editar tarea"
+			>
+				<Edit class="w-4 h-4" />
+			</button>
 			
-			<!-- Menú de acciones SIEMPRE VISIBLE -->
-			<div class="flex items-center space-x-1 opacity-100 ml-2 flex-shrink-0">
-				<button
-					class="group/btn p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 transform hover:scale-110 bg-white/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600"
-					on:click={handleEditar}
-					title="Editar tarea"
-					type="button"
-				>
-					<svg class="w-4 h-4 transition-transform duration-200 group-hover/btn:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-					</svg>
-				</button>
-				<button
-					class="group/btn p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 transform hover:scale-110 bg-white/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600"
-					on:click={handleEliminar}
-					title="Eliminar tarea"
-					type="button"
-				>
-					<svg class="w-4 h-4 transition-transform duration-200 group-hover/btn:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-					</svg>
-				</button>
-			</div>
-		</div>
-
-		<!-- Descripción -->
-		{#if tarea.descripcion && !compacta}
-			<p class="text-gray-600 dark:text-gray-400 text-xs mb-3 line-clamp-2">
-				{tarea.descripcion}
-			</p>
-		{/if}
-
-		<!-- Etiquetas -->
-		{#if tarea.etiquetas && tarea.etiquetas.length > 0 && !compacta}
-			<div class="flex flex-wrap gap-1 mb-3">
-				{#each tarea.etiquetas.slice(0, 3) as etiqueta}
-					<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-						{etiqueta}
-					</span>
-				{/each}
-				{#if tarea.etiquetas.length > 3}
-					<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400">
-						+{tarea.etiquetas.length - 3}
-					</span>
-				{/if}
-			</div>
-		{/if}
-
-		<!-- Footer con metadata -->
-		<div class="flex items-center justify-between text-xs">
-			<!-- Información de tiempo -->
-			<div class="flex items-center space-x-3">
-				<!-- Prioridad -->
-				<div class="flex items-center space-x-1">
-					<div class="w-2 h-2 rounded-full {prioridadInfo.color}"></div>
-					<span class="text-gray-500 dark:text-gray-400 capitalize">{prioridadInfo.label}</span>
-				</div>
-
-				<!-- Fecha límite -->
-				{#if tarea.fecha_limite}
-					<div class="flex items-center space-x-1" class:text-red-600={esFechaLimiteVencida} class:text-orange-600={esFechaLimiteProxima && !esFechaLimiteVencida}>
-						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-						</svg>
-						<span>{formatearFechaRelativa(tarea.fecha_limite)}</span>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Estado -->
-			<div class="flex items-center space-x-1">
-				<div class="w-2 h-2 rounded-full {estadoInfo.color}"></div>
-				<span class="text-gray-500 dark:text-gray-400">{estadoInfo.label}</span>
-			</div>
+			<!-- Botón eliminar -->
+			<button
+				class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors opacity-0 group-hover:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+				on:click={handleEliminar}
+				title="Eliminar tarea"
+			>
+				<Trash2 class="w-4 h-4" />
+			</button>
 		</div>
 	</div>
-
-	<!-- Indicador de drag & drop -->
-	{#if isDragging}
-		<div class="absolute inset-0 bg-blue-500 bg-opacity-20 rounded-lg border-2 border-blue-500 border-dashed"></div>
+	
+	<!-- Descripción -->
+	{#if tarea.descripcion}
+		<p class="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+			{tarea.descripcion}
+		</p>
 	{/if}
+
+	<!-- Footer con estado y metadatos -->
+	<div class="flex items-center justify-between">
+		<!-- Estado con selector -->
+		{#if mostrarSelectorEstado}
+			<div class="relative">
+				<div class="flex items-center space-x-1">
+					<div class="w-2 h-2 rounded-full {estadoActual.color}"></div>
+					<span class="text-gray-500 dark:text-gray-400">{estadoActual.label}</span>
+					<button
+						class="p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200"
+						on:click={handleToggleDropdown}
+						bind:this={dropdownButton}
+						title="Cambiar estado"
+						type="button"
+					>
+						<ChevronDown class="w-3 h-3 transition-transform duration-200 {mostrarDropdown ? 'rotate-180' : ''}" />
+					</button>
+					
+					<!-- Dropdown de estados - POSICIONAMIENTO DINÁMICO -->
+					{#if mostrarDropdown}
+						<!-- Backdrop -->
+						<div class="fixed inset-0 z-40" on:click={() => mostrarDropdown = false}></div>
+						
+						<!-- Dropdown -->
+						<div class="absolute {abrirHaciaArriba ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 w-48 bg-white dark:bg-gray-800 rounded-md shadow-xl border border-gray-200 dark:border-gray-600 z-50">
+							{#each estadosDisponibles as estado}
+								<button
+									class="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 first:rounded-t-md last:rounded-b-md {tarea.estado === estado.id ? 'bg-blue-50 dark:bg-blue-900' : ''}"
+									on:click={(e) => handleCambiarEstado(estado.id, e)}
+								>
+									<span class="mr-2 text-base">{estado.icon}</span>
+									<span class="truncate font-medium">{estado.label}</span>
+									{#if tarea.estado === estado.id}
+										<span class="ml-auto text-xs text-blue-600">✓</span>
+									{/if}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</div>
+		{:else}
+			<div class="flex items-center space-x-1">
+				<div class="w-2 h-2 rounded-full {estadoActual.color}"></div>
+				<span class="text-gray-500 dark:text-gray-400">{estadoActual.label}</span>
+			</div>
+		{/if}
+		
+		<!-- Metadatos -->
+		<div class="flex items-center text-xs text-gray-500 space-x-2">
+			{#if tarea.fecha_limite}
+				<span>📅 {new Date(tarea.fecha_limite).toLocaleDateString('es-ES')}</span>
+			{/if}
+			{#if tarea.prioridad}
+				<span class="px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700">
+					{tarea.prioridad === 'urgente' ? '🔴' : 
+					 tarea.prioridad === 'alta' ? '🟠' : 
+					 tarea.prioridad === 'media' ? '🟡' : '🟢'}
+				</span>
+			{/if}
+		</div>
+	</div>
 </div>
 
 <style>

@@ -166,11 +166,19 @@ export const crearNegocio = async (negocioData: Partial<Negocio>): Promise<Negoc
 			throw new Error('No hay usuario autenticado');
 		}
 
+		// Generar slug simple
+		const slug = negocioData.nombre 
+			? negocioData.nombre.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
+			: 'negocio';
+
 		const nuevoNegocio = {
 			...negocioData,
 			usuario_id: currentUser.id,
+			slug: slug + '-' + Date.now(), // Slug único
 			fecha_creacion: new Date().toISOString()
 		};
+
+		console.log('🚀 Creando negocio:', nuevoNegocio);
 
 		const { data, error } = await supabase
 			.from('negocios')

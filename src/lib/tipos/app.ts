@@ -107,6 +107,7 @@ export interface Negocio {
 	logo_url?: string;
 	website?: string;
 	telefono?: string;
+	whatsapp?: string; // NUEVO CAMPO AGREGADO
 	email?: string;
 	direccion?: string;
 	

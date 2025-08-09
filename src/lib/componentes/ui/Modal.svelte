@@ -17,12 +17,12 @@
 	
 	const dispatch = createEventDispatcher();
 	
-	// Clases para diferentes tamaños - MEJORADAS PARA RESPONSIVIDAD
+	// Clases para diferentes tamaños - MEJORADAS PARA RESPONSIVIDAD Y CENTRADO PERFECTO
 	const tamañosModal = {
 		sm: 'w-full max-w-sm mx-4 sm:mx-auto',
 		md: 'w-full max-w-md mx-4 sm:max-w-lg sm:mx-auto',
-		lg: 'w-full max-w-lg mx-4 sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl sm:mx-auto',
-		xl: 'w-full max-w-2xl mx-4 sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl sm:mx-auto',
+		lg: 'w-full max-w-lg mx-4 sm:max-w-xl md:max-w-2xl lg:max-w-4xl xl:max-w-5xl sm:mx-auto',
+		xl: 'w-full max-w-2xl mx-4 sm:max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl sm:mx-auto',
 		full: 'w-full max-w-full mx-4 sm:max-w-7xl sm:mx-auto'
 	};
 	

@@ -5,28 +5,190 @@
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		
-		<!-- Google Fonts -->
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-		
-		<!-- Meta tags -->
-		<meta name="description" content="App de gestión de proyectos y contabilidad de negocios" />
-		<meta name="keywords" content="proyectos, tareas, contabilidad, finanzas, negocios" />
-		<meta name="author" content="App Contabilidad" />
-		
-		<!-- PWA meta tags -->
-		<meta name="theme-color" content="#3b82f6" />
-		<meta name="mobile-web-app-capable" content="yes" />
+		<!-- PWA Configuration -->
+		<link rel="manifest" href="/manifest.json" />
+		<meta name="theme-color" content="#3B82F6" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-		<meta name="apple-mobile-web-app-title" content="App Contabilidad" />
+		<meta name="apple-mobile-web-app-title" content="ContabilidadPro" />
+		<link rel="apple-touch-icon" href="/favicon.png" />
+		
+		<!-- Meta Tags SEO -->
+		<meta name="description" content="Plataforma integral de contabilidad empresarial y gestión de negocios" />
+		<meta name="keywords" content="contabilidad, finanzas, negocios, inventario, clientes, ventas, POS" />
+		<meta name="author" content="ContabilidadPro Suite" />
+		
+		<!-- Open Graph -->
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="ContabilidadPro Suite" />
+		<meta property="og:description" content="Plataforma integral de contabilidad empresarial y gestión de negocios" />
+		<meta property="og:image" content="/favicon.png" />
+		
+		<!-- Twitter Card -->
+		<meta name="twitter:card" content="summary" />
+		<meta name="twitter:title" content="ContabilidadPro Suite" />
+		<meta name="twitter:description" content="Plataforma integral de contabilidad empresarial y gestión de negocios" />
+		<meta name="twitter:image" content="/favicon.png" />
 		
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover" class="bg-gray-50 dark:bg-gray-900">
 		<div style="display: contents">%sveltekit.body%</div>
-		<!-- Sonidos personalizables -->
-		<script src="/sonidos.js"></script>
+		
+		<!-- Service Worker Registration -->
+		<script>
+			if ('serviceWorker' in navigator) {
+				window.addEventListener('load', () => {
+					navigator.serviceWorker.register('/sw.js')
+						.then((registration) => {
+							console.log('🎯 Service Worker registered successfully:', registration.scope);
+							
+							// Escuchar actualizaciones del Service Worker
+							registration.addEventListener('updatefound', () => {
+								const newWorker = registration.installing;
+								
+								newWorker.addEventListener('statechange', () => {
+									if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+										// Nueva versión disponible
+										showUpdateNotification();
+									}
+								});
+							});
+						})
+						.catch((error) => {
+							console.error('❌ Service Worker registration failed:', error);
+						});
+				});
+				
+				// Escuchar mensajes del Service Worker
+				navigator.serviceWorker.addEventListener('message', (event) => {
+					if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+						showUpdateNotification();
+					}
+				});
+			}
+			
+			// Mostrar notificación de actualización
+			function showUpdateNotification() {
+				if (confirm('¡Nueva versión disponible! ¿Deseas actualizar ahora?')) {
+					window.location.reload();
+				}
+			}
+			
+			// Detectar cuando la app se instala
+			let deferredPrompt;
+			
+			window.addEventListener('beforeinstallprompt', (e) => {
+				e.preventDefault();
+				deferredPrompt = e;
+				
+				// Mostrar botón de instalación personalizado
+				showInstallButton();
+			});
+			
+			function showInstallButton() {
+				// Crear botón de instalación flotante
+				const installButton = document.createElement('div');
+				installButton.innerHTML = `
+					<div id="install-banner" style="
+						position: fixed;
+						bottom: 20px;
+						right: 20px;
+						background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+						color: white;
+						padding: 16px 20px;
+						border-radius: 12px;
+						box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+						cursor: pointer;
+						z-index: 1000;
+						font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+						display: flex;
+						align-items: center;
+						gap: 12px;
+						backdrop-filter: blur(10px);
+						border: 1px solid rgba(255,255,255,0.2);
+						transition: all 0.3s ease;
+					" onclick="installApp()">
+						<span style="font-size: 20px;">📱</span>
+						<div>
+							<div style="font-weight: 600; font-size: 14px;">Instalar ContabilidadPro</div>
+							<div style="font-size: 12px; opacity: 0.9;">Acceso rápido y modo offline</div>
+						</div>
+						<span style="font-size: 12px; opacity: 0.7; margin-left: 8px;" onclick="event.stopPropagation(); closeInstallBanner();">✕</span>
+					</div>
+				`;
+				
+				document.body.appendChild(installButton);
+				
+				// Auto-hide después de 10 segundos
+				setTimeout(() => {
+					const banner = document.getElementById('install-banner');
+					if (banner) {
+						banner.style.opacity = '0';
+						setTimeout(() => banner.remove(), 300);
+					}
+				}, 10000);
+			}
+			
+			function installApp() {
+				if (deferredPrompt) {
+					deferredPrompt.prompt();
+					
+					deferredPrompt.userChoice.then((choiceResult) => {
+						if (choiceResult.outcome === 'accepted') {
+							console.log('✅ PWA installed successfully');
+						}
+						deferredPrompt = null;
+						closeInstallBanner();
+					});
+				}
+			}
+			
+			function closeInstallBanner() {
+				const banner = document.getElementById('install-banner');
+				if (banner) {
+					banner.style.opacity = '0';
+					setTimeout(() => banner.remove(), 300);
+				}
+			}
+			
+			// Detectar instalación exitosa
+			window.addEventListener('appinstalled', () => {
+				console.log('🎉 ContabilidadPro PWA installed successfully!');
+				
+				// Opcional: enviar analytics
+				if (typeof gtag !== 'undefined') {
+					gtag('event', 'pwa_install', {
+						event_category: 'engagement',
+						event_label: 'pwa_install'
+					});
+				}
+			});
+			
+			// Gestión de estado online/offline
+			function updateOnlineStatus() {
+				const statusIndicator = document.getElementById('online-status');
+				if (statusIndicator) {
+					if (navigator.onLine) {
+						statusIndicator.textContent = '🟢 Online';
+						statusIndicator.className = 'text-green-600';
+					} else {
+						statusIndicator.textContent = '🔴 Offline';
+						statusIndicator.className = 'text-red-600';
+					}
+				}
+			}
+			
+			window.addEventListener('online', updateOnlineStatus);
+			window.addEventListener('offline', updateOnlineStatus);
+			
+			// Performance monitoring
+			window.addEventListener('load', () => {
+				if ('performance' in window) {
+					const perfData = performance.getEntriesByType('navigation')[0];
+					console.log('📊 App Load Time:', Math.round(perfData.loadEventEnd - perfData.fetchStart), 'ms');
+				}
+			});
+		</script>
 	</body>
 </html> 
